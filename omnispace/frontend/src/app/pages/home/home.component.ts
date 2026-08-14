@@ -86,10 +86,10 @@ import { PropertyCardComponent } from '../../shared/components/property-card/pro
 
             <div class="feature-card">
               <div class="feature-icon icon-orange">
-                <i class="fa-solid fa-cloud-arrow-up"></i>
+                <i class="fa-solid fa-download"></i>
               </div>
-              <h3>Instant 100% Free Hosting</h3>
-              <p>Built with Angular + Spring Boot + MongoDB, ready to deploy seamlessly on Vercel, Koyeb, and Atlas.</p>
+              <h3>Save & Export Designs</h3>
+              <p>Save your interior design projects and export them as high-quality PNG images to share with clients or contractors.</p>
             </div>
           </div>
         </div>
