@@ -1257,17 +1257,133 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  // 8. VIEW SWITCHER
+  // 8. VIEW SWITCHER & 2D CANVAS DRAWING
   setViewMode(mode: '3D' | 'TOP_DOWN' | 'FRONT') {
     this.viewMode = mode;
-    if (mode === '3D') {
-      setTimeout(() => {
-        if (this.camera && this.controls) {
-          this.camera.position.set(16, 14, 20);
-          this.controls.target.set(0, 2, 0);
-        }
-      }, 100);
+    if (this.camera && this.controls) {
+      if (mode === '3D') {
+        this.camera.position.set(16, 14, 20);
+        this.controls.target.set(0, 2, 0);
+        this.controls.maxPolarAngle = Math.PI / 2 - 0.05;
+      } else if (mode === 'TOP_DOWN') {
+        // Direct Top-Down Bird's Eye View
+        this.camera.position.set(0, 34, 0.01);
+        this.controls.target.set(0, 0, 0);
+        this.controls.maxPolarAngle = Math.PI;
+      } else if (mode === 'FRONT') {
+        // Direct Front Wall Elevation View
+        this.camera.position.set(0, this.roomHeightFt / 2, 26);
+        this.controls.target.set(0, this.roomHeightFt / 2, 0);
+        this.controls.maxPolarAngle = Math.PI / 2;
+      }
+      this.controls.update();
     }
+    this.draw2DCanvas();
+  }
+
+  draw2DCanvas() {
+    if (!this.canvas2DRef) return;
+    const canvas = this.canvas2DRef.nativeElement;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const parent = canvas.parentElement;
+    if (parent) {
+      canvas.width = parent.clientWidth || 800;
+      canvas.height = parent.clientHeight || 600;
+    }
+
+    const w = canvas.width;
+    const h = canvas.height;
+
+    // 1. Dark Blueprint Background
+    ctx.fillStyle = '#0a0f1d';
+    ctx.fillRect(0, 0, w, h);
+
+    // 2. Center Room
+    const scale = Math.min((w * 0.7) / this.roomWidthFt, (h * 0.7) / this.roomLengthFt);
+    const roomPxW = this.roomWidthFt * scale;
+    const roomPxH = this.roomLengthFt * scale;
+    const startX = (w - roomPxW) / 2;
+    const startY = (h - roomPxH) / 2;
+
+    // Floor Color / Material fill
+    let floorHex = '#c29b61';
+    if (this.floorMaterialType === 'TILE') floorHex = '#f1f5f9';
+    if (this.floorMaterialType === 'CONCRETE') floorHex = '#334155';
+    if (this.floorMaterialType === 'CARPET') floorHex = '#94a3b8';
+
+    ctx.fillStyle = floorHex;
+    ctx.fillRect(startX, startY, roomPxW, roomPxH);
+
+    // 1-Foot Measurement Grid
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.12)';
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= this.roomWidthFt; x++) {
+      ctx.beginPath();
+      ctx.moveTo(startX + x * scale, startY);
+      ctx.lineTo(startX + x * scale, startY + roomPxH);
+      ctx.stroke();
+    }
+    for (let y = 0; y <= this.roomLengthFt; y++) {
+      ctx.beginPath();
+      ctx.moveTo(startX, startY + y * scale);
+      ctx.lineTo(startX + roomPxW, startY + y * scale);
+      ctx.stroke();
+    }
+
+    // Outer Room Walls
+    ctx.strokeStyle = '#0f172a';
+    ctx.lineWidth = 10;
+    ctx.strokeRect(startX, startY, roomPxW, roomPxH);
+
+    // Wall Paint Inner Stroke
+    ctx.strokeStyle = this.wallColor;
+    ctx.lineWidth = 4;
+    ctx.strokeRect(startX + 2, startY + 2, roomPxW - 4, roomPxH - 4);
+
+    // Dimension Labels
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = 'bold 12px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${this.roomWidthFt} FT (North Wall)`, startX + roomPxW / 2, startY - 14);
+    ctx.fillText(`${this.roomLengthFt} FT (West Wall)`, startX - 20, startY + roomPxH / 2);
+
+    // Render Placed Furniture in 2D
+    this.placedItems.forEach(item => {
+      const itemW = (item.width || 4) * scale;
+      const itemH = (item.height || 2.5) * scale;
+      const itemX = startX + (item.x / 100) * (roomPxW - itemW);
+      const itemY = startY + (item.y / 100) * (roomPxH - itemH);
+
+      ctx.save();
+      ctx.translate(itemX + itemW / 2, itemY + itemH / 2);
+      ctx.rotate((item.rotation * Math.PI) / 180);
+
+      // Furniture Box
+      ctx.fillStyle = item.color || '#1e293b';
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+      ctx.shadowBlur = 6;
+      ctx.fillRect(-itemW / 2, -itemH / 2, itemW, itemH);
+
+      // Border / Selection highlight
+      if (this.selectedFurniture?.instanceId === item.instanceId) {
+        ctx.strokeStyle = '#ff5a5f';
+        ctx.lineWidth = 3;
+      } else {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.lineWidth = 1.5;
+      }
+      ctx.strokeRect(-itemW / 2, -itemH / 2, itemW, itemH);
+
+      // Label
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '10px Inter, sans-serif';
+      ctx.shadowBlur = 0;
+      ctx.fillText(item.name, 0, 3);
+
+      ctx.restore();
+    });
   }
 
   // 9. EXPORT & SAVE
@@ -1294,6 +1410,7 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
   saveHistoryState() {
     this.historyStack.push(JSON.parse(JSON.stringify(this.placedItems)));
     this.historyIndex = this.historyStack.length - 1;
+    this.draw2DCanvas();
   }
 
   undo() {
@@ -1301,6 +1418,7 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
       this.historyIndex--;
       this.placedItems = JSON.parse(JSON.stringify(this.historyStack[this.historyIndex]));
       this.rebuildAllMeshes();
+      this.draw2DCanvas();
     }
   }
 
