@@ -50,10 +50,10 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/auth/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/properties/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/furniture/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/designs/**").permitAll()
+                .requestMatchers("/", "/api/auth/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/properties/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/furniture/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/designs/**").permitAll()
                 .anyRequest().permitAll() // Allow open access for demo purposes, authenticated paths handle claims
             );
 

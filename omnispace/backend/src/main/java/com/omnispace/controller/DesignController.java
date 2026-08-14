@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/designs")
+@RequestMapping("/api/designs")
 public class DesignController {
 
     @Autowired
