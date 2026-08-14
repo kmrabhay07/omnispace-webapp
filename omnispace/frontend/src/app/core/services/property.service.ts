@@ -1,11 +1,16 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { Property } from '../models/property.model';
-import { Observable, of } from 'rxjs';
+import { Observable, of, catchError, map, tap } from 'rxjs';
+import { environment } from '../../../environments/environment';
 
 @Injectable({
   providedIn: 'root'
 })
 export class PropertyService {
+  private http = inject(HttpClient);
+  private apiUrl = `${environment.apiUrl}/properties`;
+
   private mockProperties: Property[] = [
     {
       id: 'prop-1',
@@ -14,8 +19,12 @@ export class PropertyService {
       propertyType: 'RESIDENTIAL',
       category: 'Penthouse',
       price: 1850000,
+      currency: 'USD',
+      currencySymbol: '$',
       location: 'Downtown Bayview, San Francisco',
       address: '742 Skyline Blvd, Apt 50',
+      latitude: 37.7749,
+      longitude: -122.4194,
       bedrooms: 4,
       bathrooms: 4.5,
       areaSqFt: 3400,
@@ -39,8 +48,12 @@ export class PropertyService {
       propertyType: 'RESIDENTIAL',
       category: 'Villa',
       price: 1250000,
+      currency: 'USD',
+      currencySymbol: '$',
       location: 'Pine Crest Estate, Seattle',
       address: '189 Timberline Way',
+      latitude: 47.6062,
+      longitude: -122.3321,
       bedrooms: 3,
       bathrooms: 3,
       areaSqFt: 2800,
@@ -63,8 +76,12 @@ export class PropertyService {
       propertyType: 'COMMERCIAL',
       category: 'Office',
       price: 3200000,
+      currency: 'USD',
+      currencySymbol: '$',
       location: 'Innovation District, Austin',
       address: '400 Silicon Parkway, Floor 4',
+      latitude: 30.2672,
+      longitude: -97.7431,
       bedrooms: 0,
       bathrooms: 6,
       areaSqFt: 6500,
@@ -82,71 +99,29 @@ export class PropertyService {
     },
     {
       id: 'prop-4',
-      title: 'Loft 84 Artisan Studio & Residence',
-      description: 'Industrial chic loft with exposed brickwork, 16ft timber beam ceilings, oversized steel-frame windows, and versatile open floor plan.',
+      title: 'Palm Avenue Luxury Villa',
+      description: 'Prime luxury residential villa in Indiranagar with private swimming pool, Italian marble flooring, landscaped garden, and multi-car parking.',
       propertyType: 'RESIDENTIAL',
-      category: 'Studio',
-      price: 680000,
-      location: 'Arts District, Chicago',
-      address: '840 N Fulton Market, Unit 3B',
-      bedrooms: 1,
-      bathrooms: 1.5,
-      areaSqFt: 1450,
-      furnishingStatus: 'Unfurnished',
-      amenities: ['Exposed Brick', 'High Ceilings', 'Freight Elevator', 'Freight Loading Dock', 'Pet Friendly'],
-      featuredImage: 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=1200&q=80',
-      images: [
-        'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=1200&q=80',
-        'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80'
-      ],
-      ownerName: 'Elena Rostova',
-      ownerContact: '+1 (312) 554-9920',
-      createdAt: '2026-08-12T11:00:00Z'
-    },
-    {
-      id: 'prop-5',
-      title: 'Prism Luxury Flagship Storefront',
-      description: 'Premier retail space on high-foot-traffic boulevard with expansive double-glass facade, high ceilings, security vault, and storage room.',
-      propertyType: 'COMMERCIAL',
-      category: 'Retail',
-      price: 2100000,
-      location: 'Fifth Avenue Corridor, New York',
-      address: '620 5th Avenue',
-      bedrooms: 0,
-      bathrooms: 2,
-      areaSqFt: 3100,
-      furnishingStatus: 'Semi-Furnished',
-      amenities: ['High Footfall Zone', 'Double Glass Facade', 'Storage Vault', 'HVAC Installed', 'Security System'],
-      featuredImage: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=80',
-      images: [
-        'https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=1200&q=80',
-        'https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?auto=format&fit=crop&w=1200&q=80'
-      ],
-      ownerName: 'Manhattan Prime Real Estate',
-      ownerContact: '+1 (212) 880-3321',
-      createdAt: '2026-08-13T16:20:00Z'
-    },
-    {
-      id: 'prop-6',
-      title: 'Monaco Bay Coastal Apartment',
-      description: 'Sunlit beachfront residence with sprawling balcony overlooking the azure bay. Features white oak cabinetry, stone island, and infinity pool access.',
-      propertyType: 'RESIDENTIAL',
-      category: 'Apartment',
-      price: 940000,
-      location: 'Ocean Drive, Miami',
-      address: '2200 Ocean Dr, Unit 1204',
-      bedrooms: 2,
-      bathrooms: 2,
-      areaSqFt: 1850,
+      category: 'Villa',
+      price: 8500000,
+      currency: 'INR',
+      currencySymbol: '₹',
+      location: 'Indiranagar, Bengaluru',
+      address: '100 Feet Road, HAL 2nd Stage',
+      latitude: 12.9716,
+      longitude: 77.5946,
+      bedrooms: 4,
+      bathrooms: 4,
+      areaSqFt: 3800,
       furnishingStatus: 'Furnished',
-      amenities: ['Beachfront Access', 'Infinity Pool', 'Valet Parking', 'Fitness Center', 'Private Balcony'],
-      featuredImage: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80',
+      amenities: ['Private Pool', 'Landscaped Garden', 'Clubhouse Access', '24/7 Security', 'Solar Power'],
+      featuredImage: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
       images: [
-        'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1200&q=80',
-        'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80'
+        'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
+        'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=80'
       ],
-      ownerName: 'Carlos Rossi',
-      ownerContact: '+1 (305) 772-0091',
+      ownerName: 'Abhay Kumar',
+      ownerContact: '+91-8091109624',
       createdAt: '2026-08-14T08:00:00Z'
     }
   ];
@@ -154,22 +129,50 @@ export class PropertyService {
   private propertiesSignal = signal<Property[]>(this.mockProperties);
 
   getProperties(): Observable<Property[]> {
-    return of(this.propertiesSignal());
+    return this.http.get<Property[]>(this.apiUrl).pipe(
+      tap(serverProps => {
+        if (serverProps && serverProps.length > 0) {
+          // Merge server properties with mock properties avoiding duplicate IDs
+          const serverIds = new Set(serverProps.map(p => p.id));
+          const filteredMock = this.mockProperties.filter(p => !serverIds.has(p.id));
+          this.propertiesSignal.set([...serverProps, ...filteredMock]);
+        }
+      }),
+      map(() => this.propertiesSignal()),
+      catchError(err => {
+        console.warn('Backend API offline or unreachable, using local data store:', err);
+        return of(this.propertiesSignal());
+      })
+    );
   }
 
   getPropertyById(id: string): Observable<Property | undefined> {
-    const prop = this.propertiesSignal().find(p => p.id === id);
-    return of(prop);
+    return this.http.get<Property>(`${this.apiUrl}/${id}`).pipe(
+      catchError(() => {
+        const prop = this.propertiesSignal().find(p => p.id === id);
+        return of(prop);
+      })
+    );
   }
 
   addProperty(property: Omit<Property, 'id' | 'createdAt'>): Observable<Property> {
-    const newProp: Property = {
-      ...property,
-      id: 'prop-' + Date.now(),
-      createdAt: new Date().toISOString()
-    };
-    const current = this.propertiesSignal();
-    this.propertiesSignal.set([newProp, ...current]);
-    return of(newProp);
+    return this.http.post<Property>(this.apiUrl, property).pipe(
+      tap(createdProp => {
+        // Successfully saved in MongoDB Atlas!
+        const current = this.propertiesSignal();
+        this.propertiesSignal.set([createdProp, ...current]);
+      }),
+      catchError(err => {
+        console.warn('Backend POST failed, storing locally:', err);
+        const fallbackProp: Property = {
+          ...property,
+          id: 'prop-' + Date.now(),
+          createdAt: new Date().toISOString()
+        };
+        const current = this.propertiesSignal();
+        this.propertiesSignal.set([fallbackProp, ...current]);
+        return of(fallbackProp);
+      })
+    );
   }
 }
