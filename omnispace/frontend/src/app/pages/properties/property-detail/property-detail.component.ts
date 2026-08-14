@@ -1,8 +1,10 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { PropertyService } from '../../../core/services/property.service';
 import { Property } from '../../../core/models/property.model';
+
+declare var L: any;
 
 @Component({
   selector: 'app-property-detail',
@@ -50,8 +52,8 @@ import { Property } from '../../../core/models/property.model';
               <p class="location"><i class="fa-solid fa-location-dot"></i> {{ property.location }} • {{ property.address }}</p>
 
               <div class="price-box">
-                <span class="price-val">\${{ property.price | number }}</span>
-                <span class="price-sub">Est. mortgage \${{ (property.price * 0.005) | number:'1.0-0' }}/mo</span>
+                <span class="price-val">{{ property.currencySymbol || (property.currency === 'INR' ? '₹' : '$') }}{{ property.price | number }}</span>
+                <span class="price-sub">Est. mortgage {{ property.currencySymbol || (property.currency === 'INR' ? '₹' : '$') }}{{ (property.price * 0.005) | number:'1.0-0' }}/mo</span>
               </div>
             </div>
 
@@ -108,6 +110,13 @@ import { Property } from '../../../core/models/property.model';
                 </div>
               </div>
             </div>
+
+            <!-- Interactive Map Section -->
+            <div class="section-block">
+              <h2>Location & Map</h2>
+              <p class="map-location-title"><i class="fa-solid fa-map-location-dot"></i> {{ property.address ? (property.address + ', ' + property.location) : property.location }}</p>
+              <div id="property-detail-map" class="map-container"></div>
+            </div>
           </main>
 
           <!-- Contact Sidebar -->
@@ -119,13 +128,13 @@ import { Property } from '../../../core/models/property.model';
               <div class="owner-profile">
                 <div class="avatar"><i class="fa-solid fa-user-tie"></i></div>
                 <div class="owner-meta">
-                  <div class="name">{{ property.ownerName || 'Victoria Sterling' }}</div>
-                  <div class="role">Property Agent / Owner</div>
+                  <div class="name">{{ property.ownerName || 'Property Host' }}</div>
+                  <div class="role">Verified Owner / Agent</div>
                 </div>
               </div>
 
               <div class="contact-buttons">
-                <a [href]="'tel:' + (property.ownerContact || '123456789')" class="btn btn-primary btn-full">
+                <a [href]="'tel:' + (property.ownerContact || '+918091109624')" class="btn btn-primary btn-full">
                   <i class="fa-solid fa-phone"></i> Call Agent
                 </a>
                 <button (click)="onInquire()" class="btn btn-outline btn-full">
@@ -158,9 +167,9 @@ import { Property } from '../../../core/models/property.model';
 
       .gallery-grid {
         display: grid;
-        grid-template-columns: 1fr 120px;
+        grid-template-columns: 1fr 180px;
         gap: 16px;
-        height: 420px;
+        height: 480px;
 
         @media (max-width: 768px) {
           grid-template-columns: 1fr;
@@ -168,16 +177,16 @@ import { Property } from '../../../core/models/property.model';
         }
 
         .main-image {
-          width: 100%;
-          height: 100%;
-          border-radius: var(--radius-md);
+          border-radius: var(--radius-lg);
           overflow: hidden;
           background: #000;
+          height: 100%;
 
           img {
             width: 100%;
             height: 100%;
             object-fit: cover;
+            min-height: 300px;
           }
         }
 
@@ -187,196 +196,277 @@ import { Property } from '../../../core/models/property.model';
           gap: 12px;
           overflow-y: auto;
 
-          .thumb-item {
+          @media (max-width: 768px) {
+            flex-direction: row;
             height: 90px;
-            border-radius: var(--radius-sm);
+          }
+
+          .thumb-item {
+            height: 110px;
+            border-radius: var(--radius-md);
             overflow: hidden;
             cursor: pointer;
             border: 2px solid transparent;
             opacity: 0.7;
             transition: all 0.2s ease;
 
-            &.active, &:hover {
+            @media (max-width: 768px) {
+              width: 120px;
+              height: 100%;
+              flex-shrink: 0;
+            }
+
+            &:hover, &.active {
               opacity: 1;
               border-color: var(--primary);
             }
 
-            img { width: 100%; height: 100%; object-fit: cover; }
+            img {
+              width: 100%;
+              height: 100%;
+              object-fit: cover;
+            }
           }
         }
       }
     }
 
-    .detail-layout {
-      display: grid;
-      grid-template-columns: 1fr 340px;
-      gap: 40px;
-      padding: 40px 0 100px;
+    .content-section {
+      padding: 50px 0 100px;
 
-      @media (max-width: 992px) {
-        grid-template-columns: 1fr;
-      }
-    }
+      .detail-layout {
+        display: grid;
+        grid-template-columns: 1fr 340px;
+        gap: 40px;
 
-    .header-info {
-      margin-bottom: 30px;
-
-      .badges-row {
-        display: flex;
-        gap: 10px;
-        margin-bottom: 12px;
-
-        .furnish-badge {
-          font-size: 0.8rem;
-          font-weight: 700;
-          background: var(--gray-light);
-          padding: 4px 10px;
-          border-radius: var(--radius-full);
-          color: var(--dark-soft);
+        @media (max-width: 992px) {
+          grid-template-columns: 1fr;
         }
       }
 
-      .title { font-size: 2.2rem; margin-bottom: 8px; }
-      .location { color: var(--gray-muted); font-size: 1rem; margin-bottom: 20px; }
+      .header-info {
+        margin-bottom: 30px;
 
-      .price-box {
-        display: flex;
-        align-items: baseline;
+        .badges-row {
+          display: flex;
+          gap: 10px;
+          margin-bottom: 12px;
+
+          .furnish-badge {
+            font-size: 0.8rem;
+            font-weight: 600;
+            background: var(--gray-light);
+            padding: 3px 10px;
+            border-radius: var(--radius-sm);
+          }
+        }
+
+        .title {
+          font-size: 2.2rem;
+          font-weight: 800;
+          margin-bottom: 8px;
+        }
+
+        .location {
+          font-size: 1.05rem;
+          color: var(--gray-muted);
+          margin-bottom: 20px;
+        }
+
+        .price-box {
+          display: flex;
+          align-items: baseline;
+          gap: 16px;
+          padding: 16px 20px;
+          background: #F8FAFC;
+          border-radius: var(--radius-md);
+          border-left: 4px solid var(--primary);
+
+          .price-val {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--dark);
+          }
+
+          .price-sub {
+            color: var(--gray-muted);
+            font-size: 0.9rem;
+          }
+        }
+      }
+
+      .specs-bar {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
         gap: 16px;
+        margin-bottom: 36px;
 
-        .price-val { font-size: 2.2rem; font-weight: 800; color: var(--primary); }
-        .price-sub { font-size: 0.9rem; color: var(--gray-muted); }
-      }
-    }
+        @media (max-width: 600px) {
+          grid-template-columns: repeat(2, 1fr);
+        }
 
-    .specs-bar {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 16px;
-      background: var(--white);
-      border: 1px solid var(--gray-border);
-      border-radius: var(--radius-md);
-      padding: 20px;
-      margin-bottom: 36px;
+        .spec-card {
+          background: white;
+          border: 1px solid var(--gray-border);
+          border-radius: var(--radius-md);
+          padding: 20px;
+          text-align: center;
 
-      .spec-card {
-        text-align: center;
-        i { font-size: 1.5rem; color: var(--primary); margin-bottom: 6px; }
-        .spec-val { font-size: 1.2rem; font-weight: 700; }
-        .spec-lbl { font-size: 0.8rem; color: var(--gray-muted); }
-      }
-    }
+          i {
+            font-size: 1.5rem;
+            color: var(--primary);
+            margin-bottom: 8px;
+          }
 
-    .designer-cta-banner {
-      background: linear-gradient(135deg, #0F172A, #1E293B);
-      color: white;
-      border-radius: var(--radius-md);
-      padding: 24px 30px;
-      display: flex;
-      align-items: center;
-      gap: 20px;
-      margin-bottom: 40px;
+          .spec-val {
+            font-size: 1.3rem;
+            font-weight: 800;
+          }
 
-      @media (max-width: 768px) {
-        flex-direction: column;
-        text-align: center;
+          .spec-lbl {
+            font-size: 0.8rem;
+            color: var(--gray-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+        }
       }
 
-      .cta-icon {
-        width: 54px;
-        height: 54px;
-        border-radius: 50%;
-        background: rgba(0, 166, 153, 0.2);
-        color: var(--secondary);
-        font-size: 1.6rem;
+      .designer-cta-banner {
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+        color: white;
+        border-radius: var(--radius-lg);
+        padding: 30px;
         display: flex;
         align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-      }
+        gap: 24px;
+        margin-bottom: 40px;
 
-      .cta-text {
-        flex: 1;
-        h3 { color: white; font-size: 1.25rem; margin-bottom: 4px; }
-        p { color: #94A3B8; font-size: 0.9rem; }
-      }
-    }
+        @media (max-width: 768px) {
+          flex-direction: column;
+          text-align: center;
+        }
 
-    .section-block {
-      margin-bottom: 40px;
-      h2 { font-size: 1.4rem; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--gray-border); }
-      .description-text { font-size: 1.05rem; line-height: 1.7; color: var(--dark-soft); }
-    }
-
-    .amenities-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-      gap: 14px;
-
-      .amenity-item {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        font-size: 0.95rem;
-        color: var(--dark-soft);
-
-        i { color: var(--secondary); }
-      }
-    }
-
-    .sidebar-contact {
-      .contact-card {
-        background: var(--white);
-        border: 1px solid var(--gray-border);
-        border-radius: var(--radius-md);
-        padding: 28px;
-        position: sticky;
-        top: 100px;
-
-        h3 { font-size: 1.2rem; margin-bottom: 6px; }
-        p { font-size: 0.9rem; color: var(--gray-muted); margin-bottom: 24px; }
-
-        .owner-profile {
+        .cta-icon {
+          width: 60px;
+          height: 60px;
+          border-radius: 50%;
+          background: rgba(0, 166, 153, 0.2);
+          color: var(--secondary);
           display: flex;
           align-items: center;
-          gap: 12px;
-          margin-bottom: 24px;
-          padding: 12px;
-          background: var(--gray-light);
-          border-radius: var(--radius-sm);
-
-          .avatar {
-            width: 42px;
-            height: 42px;
-            border-radius: 50%;
-            background: var(--dark);
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-          }
-
-          .name { font-weight: 700; font-size: 0.95rem; }
-          .role { font-size: 0.78rem; color: var(--gray-muted); }
+          justify-content: center;
+          font-size: 1.8rem;
+          flex-shrink: 0;
         }
 
-        .contact-buttons {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
+        .cta-text {
+          flex: 1;
+          h3 { font-size: 1.3rem; margin-bottom: 6px; }
+          p { color: #94a3b8; font-size: 0.95rem; margin: 0; }
+        }
+      }
 
-          .btn-full { width: 100%; }
+      .section-block {
+        margin-bottom: 40px;
+        padding-bottom: 30px;
+        border-bottom: 1px solid var(--gray-border);
+
+        h2 { font-size: 1.5rem; margin-bottom: 16px; }
+        .description-text { color: var(--dark-soft); line-height: 1.8; font-size: 1.05rem; }
+      }
+
+      .map-location-title {
+        color: var(--gray-muted);
+        font-size: 0.95rem;
+        margin-bottom: 14px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        i { color: var(--primary); }
+      }
+
+      .map-container {
+        width: 100%;
+        height: 320px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--gray-border);
+        overflow: hidden;
+        z-index: 1;
+      }
+
+      .amenities-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 14px;
+
+        .amenity-item {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          font-size: 0.95rem;
+          color: var(--dark-soft);
+
+          i { color: var(--secondary); }
+        }
+      }
+
+      .sidebar-contact {
+        .contact-card {
+          position: sticky;
+          top: 100px;
+          background: white;
+          border: 1px solid var(--gray-border);
+          border-radius: var(--radius-lg);
+          padding: 30px;
+          box-shadow: var(--shadow-md);
+
+          h3 { font-size: 1.3rem; margin-bottom: 8px; }
+          p { color: var(--gray-muted); font-size: 0.9rem; margin-bottom: 24px; }
+
+          .owner-profile {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 24px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--gray-border);
+
+            .avatar {
+              width: 46px;
+              height: 46px;
+              border-radius: 50%;
+              background: var(--dark);
+              color: white;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 1.2rem;
+            }
+
+            .name { font-weight: 700; font-size: 1rem; }
+            .role { font-size: 0.8rem; color: var(--gray-muted); }
+          }
+
+          .contact-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+
+            .btn-full { width: 100%; }
+          }
         }
       }
     }
   `]
 })
-export class PropertyDetailComponent implements OnInit {
+export class PropertyDetailComponent implements OnInit, AfterViewInit {
   propertyService = inject(PropertyService);
   route = inject(ActivatedRoute);
 
   property?: Property;
   activeImage = '';
+  private mapInstance: any;
 
   ngOnInit() {
     this.route.params.subscribe(params => {
@@ -387,9 +477,35 @@ export class PropertyDetailComponent implements OnInit {
           if (prop && prop.featuredImage) {
             this.activeImage = prop.featuredImage;
           }
+          setTimeout(() => this.initMap(), 200);
         });
       }
     });
+  }
+
+  ngAfterViewInit() {
+    if (this.property) {
+      setTimeout(() => this.initMap(), 300);
+    }
+  }
+
+  initMap() {
+    const mapElement = document.getElementById('property-detail-map');
+    if (!mapElement || typeof L === 'undefined' || this.mapInstance) return;
+
+    // Default to property coords or Bengaluru / San Francisco fallback
+    let lat = this.property?.latitude || (this.property?.location?.toLowerCase().includes('bengaluru') ? 12.9716 : (this.property?.currency === 'INR' ? 12.9716 : 37.7749));
+    let lng = this.property?.longitude || (this.property?.location?.toLowerCase().includes('bengaluru') ? 77.5946 : (this.property?.currency === 'INR' ? 77.5946 : -122.4194));
+
+    this.mapInstance = L.map('property-detail-map').setView([lat, lng], 13);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(this.mapInstance);
+
+    const marker = L.marker([lat, lng]).addTo(this.mapInstance);
+    marker.bindPopup(`<strong>${this.property?.title || 'Property Location'}</strong><br>${this.property?.location || ''}`).openPopup();
   }
 
   onInquire() {

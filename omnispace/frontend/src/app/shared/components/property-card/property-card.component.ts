@@ -21,7 +21,7 @@ import { Property } from '../../../core/models/property.model';
 
       <div class="card-body">
         <div class="price-row">
-          <span class="price">\${{ property.price | number }}</span>
+          <span class="price">{{ property.currencySymbol || (property.currency === 'INR' ? '₹' : '$') }}{{ property.price | number }}</span>
           <span class="furnish-tag">{{ property.furnishingStatus }}</span>
         </div>
 

@@ -5,8 +5,12 @@ export interface Property {
   propertyType: 'RESIDENTIAL' | 'COMMERCIAL';
   category: 'Apartment' | 'Villa' | 'Penthouse' | 'Office' | 'Retail' | 'Studio';
   price: number;
+  currency?: 'INR' | 'USD' | 'EUR' | 'GBP' | 'AED';
+  currencySymbol?: string;
   location: string;
   address: string;
+  latitude?: number;
+  longitude?: number;
   bedrooms: number;
   bathrooms: number;
   areaSqFt: number;

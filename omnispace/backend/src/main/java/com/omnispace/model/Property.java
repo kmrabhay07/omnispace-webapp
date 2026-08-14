@@ -23,8 +23,12 @@ public class Property {
     private String propertyType; // RESIDENTIAL, COMMERCIAL
     private String category; // Apartment, Villa, Office, Retail, Studio, Penthouse
     private Double price;
+    private String currency; // INR, USD, EUR, GBP, AED
+    private String currencySymbol; // ₹, $, €, £, د.إ
     private String location;
     private String address;
+    private Double latitude;
+    private Double longitude;
     private Integer bedrooms;
     private Integer bathrooms;
     private Double areaSqFt;
