@@ -1,56 +1,39 @@
-# 🏠 OmniSpace — Property Listing & 2D Interior Design Web App
+# 🏠 OmniSpace — Real Estate & Interior Design Platform
 
-OmniSpace is a full-stack platform combining real estate property listings (residential & commercial) with an interactive **2D Interior Design & Staging Studio**.
-
----
-
-## 📋 USER ACTION CHECKLIST FOR DEPLOYMENT (100% FREE)
-
-Follow these simple steps to make your application live on the internet:
-
-### STEP 1: Deploy Backend REST API on Render.com (Takes 2 minutes)
-
-1. Open **[dashboard.render.com](https://dashboard.render.com)** and log in with your GitHub account.
-2. Click **New +** (top right) → **Web Service**.
-3. Select **Build and deploy from a Git repository** → choose repository `kmrabhay07/omnispace-webapp`.
-4. Configure these exact settings:
-   - **Name**: `omnispace-api`
-   - **Root Directory**: `omnispace/backend`
-   - **Runtime**: `Docker`
-   - **Environment Variables**:
-     - Key: `MONGO_DB_URI`
-     - Value: `mongodb+srv://freeak:root%401234@cluster0.e5vkr1f.mongodb.net/omnispace?retryWrites=true&w=majority`
-5. Click **Create Web Service**.
-6. Render will automatically build the container and provide your live API URL (e.g., `https://omnispace-api.onrender.com`).
+OmniSpace is a full-stack web application that combines a modern **property marketplace** with an interactive **2D Interior Design Studio**. Browse residential and commercial properties, then design and stage any space with a powerful drag-and-drop canvas editor.
 
 ---
 
-### STEP 2: Deploy Frontend SPA on Vercel (Takes 1 minute)
+## ✨ Features
 
-1. Open **[vercel.com](https://vercel.com)** and log in with your GitHub account.
-2. Click **Add New...** → **Project**.
-3. Import repository `kmrabhay07/omnispace-webapp`.
-4. Configure these exact settings:
-   - **Framework Preset**: `Angular`
-   - **Root Directory**: `omnispace/frontend`
-5. Click **Deploy**.
-6. Vercel will build your Angular application and provide your live website link (e.g., `https://omnispace.vercel.app`)!
+### 🏡 Property Marketplace
+- Browse residential and commercial property listings
+- Advanced filtering by price range, property type, bedrooms, and location
+- Detailed property pages with image galleries, specs, and amenities
+- Create and manage your own property listings
+
+### 🎨 2D Interior Design Studio
+- **Dual View Modes**: Top-Down Floor Plan view and Front-Facing Elevation view
+- **20+ Furniture Items** across 6 categories: Living Room, Bedroom, Kitchen, Bathroom, Office, and Decor
+- **Drag & Drop** furniture onto an interactive HTML5 Canvas
+- **Wall & Floor Painting** with color swatches and texture options
+- **Grid Snapping** with 1ft measurement grid for precision placement
+- **Undo / Redo** history stack (Ctrl+Z / Ctrl+Y)
+- **Export to PNG** — save your designs as images
+
+### 🔐 Authentication
+- User registration and login with JWT-based authentication
+- Secure API endpoints with Spring Security
 
 ---
 
-## 🚀 Local Development Setup
+## 🛠 Tech Stack
 
-### 1. Frontend (Angular 18)
-```bash
-cd omnispace/frontend
-npm install
-npx ng serve
-```
-Access at `http://localhost:4200`
-
-### 2. Backend (Spring Boot 3 + MongoDB)
-```bash
-cd omnispace/backend
-mvn spring-boot:run
-```
-API runs at `http://localhost:8080/api`
+| Layer | Technology |
+|---|---|
+| **Frontend** | Angular 18 (TypeScript, SCSS) |
+| **Backend** | Java 17 + Spring Boot 3.x |
+| **Database** | MongoDB Atlas |
+| **Auth** | Spring Security + JWT |
+| **API** | RESTful JSON API |
+| **Design Engine** | HTML5 Canvas |
