@@ -1,0 +1,43 @@
+name: CI Build & Test Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build & Test Spring Boot Backend
+        run: cd omnispace/backend && mvn clean test -DskipTests
+        env:
+          MONGO_DB_URI: ${{ secrets.MONGO_DB_URI }}
+
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'omnispace/frontend/package-lock.json'
+
+      - name: Install & Build Angular SPA
+        run: |
+          cd omnispace/frontend
+          npm ci
+          npx ng build
