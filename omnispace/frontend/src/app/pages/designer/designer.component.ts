@@ -1,4 +1,4 @@
-import { Component, ElementRef, ViewChild, AfterViewInit, HostListener, inject, OnInit } from '@angular/core';
+import { Component, ElementRef, ViewChild, AfterViewInit, inject, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -7,6 +7,8 @@ import { DesignService } from '../../core/services/design.service';
 import { PropertyService } from '../../core/services/property.service';
 import { FurnitureItem, PlacedFurniture } from '../../core/models/furniture-item.model';
 import { DesignProject } from '../../core/models/design-project.model';
+
+declare var THREE: any;
 
 @Component({
   selector: 'app-designer',
@@ -21,50 +23,53 @@ import { DesignProject } from '../../core/models/design-project.model';
           <span class="project-title">{{ currentProject.name }}</span>
         </div>
 
-        <!-- View Mode Switcher -->
+        <!-- 3D vs 2D View Switcher -->
         <div class="view-toggle">
+          <button [class.active]="viewMode === '3D'" (click)="setViewMode('3D')">
+            <i class="fa-solid fa-cube"></i> 3D Studio (Walkthrough)
+          </button>
           <button [class.active]="viewMode === 'TOP_DOWN'" (click)="setViewMode('TOP_DOWN')">
-            <i class="fa-solid fa-layer-group"></i> Top-Down (Floor Plan)
+            <i class="fa-solid fa-layer-group"></i> 2D Floor Plan
           </button>
           <button [class.active]="viewMode === 'FRONT'" (click)="setViewMode('FRONT')">
-            <i class="fa-solid fa-vr-cardboard"></i> Front View (Elevation)
+            <i class="fa-solid fa-vr-cardboard"></i> Front Elevation
           </button>
         </div>
 
         <div class="toolbar-actions">
-          <button class="tool-btn" (click)="toggleSnapGrid()" [class.active]="snapToGrid" title="Snap to 1ft Grid">
-            <i class="fa-solid fa-border-all"></i> Grid Snap
+          <button class="tool-btn" (click)="resetCameraView()" title="Reset Camera">
+            <i class="fa-solid fa-camera-rotate"></i> Reset View
+          </button>
+          <button class="tool-btn" (click)="toggleDayNight()" [class.active]="isNightMode" title="Toggle Day/Night Lighting">
+            <i [class]="isNightMode ? 'fa-solid fa-moon' : 'fa-solid fa-sun'"></i> {{ isNightMode ? 'Night Mode' : 'Daylight' }}
           </button>
           <button class="tool-btn" (click)="undo()" [disabled]="historyIndex <= 0" title="Undo (Ctrl+Z)">
             <i class="fa-solid fa-rotate-left"></i> Undo
           </button>
-          <button class="tool-btn" (click)="redo()" [disabled]="historyIndex >= historyStack.length - 1" title="Redo (Ctrl+Y)">
-            <i class="fa-solid fa-rotate-right"></i> Redo
-          </button>
-          <button class="tool-btn btn-danger" (click)="clearCanvas()" title="Clear All Furniture">
+          <button class="tool-btn btn-danger" (click)="clearAllFurniture()" title="Clear Room">
             <i class="fa-solid fa-trash"></i> Clear
           </button>
-          <button class="tool-btn btn-export" (click)="exportAsPNG()" title="Export PNG Image">
+          <button class="tool-btn btn-export" (click)="exportStudioSnapshot()" title="Export PNG Image">
             <i class="fa-solid fa-download"></i> Export PNG
           </button>
           <button class="btn btn-primary btn-save" (click)="saveProject()">
-            <i class="fa-solid fa-floppy-disk"></i> Save Project
+            <i class="fa-solid fa-floppy-disk"></i> Save Design
           </button>
         </div>
       </header>
 
       <div class="studio-body">
-        <!-- LEFT SIDEBAR: FURNITURE & PAINT CATALOG -->
+        <!-- LEFT SIDEBAR: 3D FURNITURE & MATERIAL PALETTE -->
         <aside class="left-sidebar">
           <div class="sidebar-tabs">
             <button [class.active]="activeTab === 'FURNITURE'" (click)="activeTab = 'FURNITURE'">
-              <i class="fa-solid fa-couch"></i> Furniture
+              <i class="fa-solid fa-couch"></i> 3D Furniture
             </button>
             <button [class.active]="activeTab === 'PAINT'" (click)="activeTab = 'PAINT'">
-              <i class="fa-solid fa-palette"></i> Paint & Floor
+              <i class="fa-solid fa-palette"></i> Walls & Floor
             </button>
             <button [class.active]="activeTab === 'ROOM'" (click)="activeTab = 'ROOM'">
-              <i class="fa-solid fa-vector-square"></i> Room Size
+              <i class="fa-solid fa-vector-square"></i> Room Specs
             </button>
           </div>
 
@@ -84,108 +89,136 @@ import { DesignProject } from '../../core/models/design-project.model';
               <div
                 *ngFor="let item of filteredCatalog"
                 class="catalog-card"
-                (click)="addFurnitureToCanvas(item)"
+                (click)="add3DFurniture(item)"
               >
                 <div class="item-preview">
-                  <div class="svg-placeholder" [attr.data-icon]="item.iconSvg">
-                    <i [class]="getCategoryIcon(item.category)"></i>
-                  </div>
+                  <div class="item-3d-badge">3D</div>
+                  <i [class]="getCategoryIcon(item.category)" class="catalog-icon"></i>
                 </div>
                 <div class="item-meta">
                   <div class="name">{{ item.name }}</div>
                   <div class="dimensions">{{ item.defaultWidth }}' × {{ item.defaultHeight }}'</div>
                 </div>
-                <button class="add-btn"><i class="fa-solid fa-plus"></i></button>
+                <button class="add-btn" title="Add to room"><i class="fa-solid fa-plus"></i></button>
               </div>
             </div>
           </div>
 
-          <!-- PAINT TAB CONTENT -->
+          <!-- PAINT & FLOOR MATERIALS TAB -->
           <div class="tab-content" *ngIf="activeTab === 'PAINT'">
-            <div class="paint-section">
-              <h4>Wall Color</h4>
-              <div class="swatch-grid">
-                <button
-                  *ngFor="let c of wallSwatches"
-                  class="swatch-btn"
-                  [style.background]="c.hex"
+            <div class="palette-section">
+              <h4><i class="fa-solid fa-paint-roller"></i> 3D Wall Paint</h4>
+              <p class="sub-label">Click a shade to paint all interior walls</p>
+              <div class="color-swatches">
+                <div
+                  *ngFor="let c of wallPalette"
+                  class="swatch"
+                  [style.background-color]="c.hex"
                   [class.active]="wallColor === c.hex"
                   (click)="setWallColor(c.hex)"
                   [title]="c.name"
-                ></button>
-              </div>
-              <div class="custom-color-picker">
-                <label>Custom Wall Hex:</label>
-                <input type="color" [(ngModel)]="wallColor" (change)="recordHistory()">
+                ></div>
               </div>
             </div>
 
-            <div class="paint-section">
-              <h4>Floor Color & Texture</h4>
-              <div class="swatch-grid">
+            <div class="palette-section">
+              <h4><i class="fa-solid fa-border-all"></i> 3D Floor Textures & Materials</h4>
+              <p class="sub-label">Select flooring surface</p>
+              <div class="material-grid">
                 <button
-                  *ngFor="let f of floorSwatches"
-                  class="swatch-btn"
-                  [style.background]="f.hex"
-                  [class.active]="floorColor === f.hex"
-                  (click)="setFloorColor(f.hex)"
-                  [title]="f.name"
-                ></button>
+                  *ngFor="let mat of floorMaterials"
+                  class="material-card"
+                  [class.active]="floorMaterialType === mat.id"
+                  (click)="setFloorMaterial(mat.id)"
+                >
+                  <div class="mat-color-preview" [style.background]="mat.preview"></div>
+                  <span>{{ mat.name }}</span>
+                </button>
               </div>
             </div>
           </div>
 
-          <!-- ROOM TAB CONTENT -->
+          <!-- ROOM SPECS TAB -->
           <div class="tab-content" *ngIf="activeTab === 'ROOM'">
-            <div class="form-group">
-              <label>Room Width (Feet): {{ roomWidth }} ft</label>
-              <input type="range" min="10" max="40" [(ngModel)]="roomWidth" (input)="renderCanvas()">
+            <div class="room-control-group">
+              <label>Room Width (Feet): {{ roomWidthFt }}'</label>
+              <input type="range" min="10" max="36" step="2" [(ngModel)]="roomWidthFt" (input)="updateRoomDimensions()">
             </div>
-            <div class="form-group">
-              <label>Room Length (Feet): {{ roomHeight }} ft</label>
-              <input type="range" min="10" max="40" [(ngModel)]="roomHeight" (input)="renderCanvas()">
+            <div class="room-control-group">
+              <label>Room Length (Feet): {{ roomLengthFt }}'</label>
+              <input type="range" min="10" max="36" step="2" [(ngModel)]="roomLengthFt" (input)="updateRoomDimensions()">
+            </div>
+            <div class="room-control-group">
+              <label>Ceiling Height: {{ roomHeightFt }}'</label>
+              <input type="range" min="8" max="16" step="1" [(ngModel)]="roomHeightFt" (input)="updateRoomDimensions()">
             </div>
 
-            <div class="presets-section">
-              <h4>Quick Templates</h4>
-              <div class="template-buttons">
-                <button (click)="applyTemplate('STUDIO')" class="preset-btn">Studio Apt (16x14)</button>
-                <button (click)="applyTemplate('LIVING')" class="preset-btn">Penthouse Living (24x18)</button>
-                <button (click)="applyTemplate('OFFICE')" class="preset-btn">Tech Office (30x20)</button>
-              </div>
+            <div class="room-preset-boxes">
+              <h4>Quick Layout Presets:</h4>
+              <button class="btn-preset" (click)="applyRoomPreset('LIVING')">Modern Living Room</button>
+              <button class="btn-preset" (click)="applyRoomPreset('BEDROOM')">Master Suite</button>
+              <button class="btn-preset" (click)="applyRoomPreset('OFFICE')">Executive Office</button>
             </div>
           </div>
         </aside>
 
-        <!-- CANVAS MAIN WORKSPACE -->
-        <main class="canvas-workspace">
-          <div class="canvas-container">
-            <canvas #studioCanvas (mousedown)="onCanvasMouseDown($event)" (mousemove)="onCanvasMouseMove($event)" (mouseup)="onCanvasMouseUp()"></canvas>
+        <!-- 3D / 2D CANVAS VIEWPORT -->
+        <main class="canvas-viewport" #viewportContainer>
+          <!-- THREE.JS 3D CANVAS CONTAINER -->
+          <div class="threejs-canvas-wrapper" #threeCanvasContainer [style.display]="viewMode === '3D' ? 'block' : 'none'"></div>
+
+          <!-- 2D FLOOR PLAN / ELEVATION CANVAS (for 2D views) -->
+          <canvas #canvas2D class="canvas-2d" [style.display]="viewMode !== '3D' ? 'block' : 'none'"></canvas>
+
+          <!-- 3D INTERACTION HINT OVERLAY -->
+          <div class="viewport-hints" *ngIf="viewMode === '3D'">
+            <div class="hint-pill"><i class="fa-solid fa-computer-mouse"></i> Left Click + Drag: <strong>Orbit 3D Camera</strong></div>
+            <div class="hint-pill"><i class="fa-solid fa-arrows-up-down-left-right"></i> Right Click: <strong>Pan Room</strong></div>
+            <div class="hint-pill"><i class="fa-solid fa-magnifying-glass-plus"></i> Scroll: <strong>Zoom In/Out</strong></div>
           </div>
 
-          <!-- BOTTOM PROPERTY INSPECTOR BAR -->
-          <div class="item-inspector" *ngIf="selectedFurniture">
-            <div class="inspector-info">
-              <span class="item-title">{{ selectedFurniture.name }}</span>
-              <span class="item-coords">X: {{ selectedFurniture.x | number:'1.1-1' }}ft, Y: {{ selectedFurniture.y | number:'1.1-1' }}ft</span>
-            </div>
-
-            <div class="inspector-controls">
-              <button class="insp-btn" (click)="rotateSelected(-90)" title="Rotate Left 90°">
-                <i class="fa-solid fa-rotate-left"></i> Rotate 90°
-              </button>
-
-              <div class="color-picker-inline">
-                <label>Color:</label>
-                <input type="color" [(ngModel)]="selectedFurniture.color" (change)="renderCanvas(); recordHistory()">
-              </div>
-
-              <button class="insp-btn btn-danger" (click)="deleteSelected()" title="Delete Item">
-                <i class="fa-solid fa-trash"></i> Delete
-              </button>
+          <!-- SELECTED ITEM FLOATING CONTROLLER -->
+          <div class="selected-item-toolbar" *ngIf="selectedFurniture">
+            <span class="selected-title"><i class="fa-solid fa-couch"></i> {{ selectedFurniture.name }}</span>
+            <div class="actions">
+              <button (click)="rotateSelected(45)" title="Rotate 45°"><i class="fa-solid fa-rotate-right"></i> Rotate</button>
+              <button (click)="changeColorSelected()" title="Change Fabric Color"><i class="fa-solid fa-paint-roller"></i> Color</button>
+              <button class="btn-del" (click)="deleteSelected()" title="Delete"><i class="fa-solid fa-trash"></i></button>
             </div>
           </div>
         </main>
+
+        <!-- RIGHT SIDEBAR: PLACED OBJECTS & INSPECTOR -->
+        <aside class="right-sidebar">
+          <div class="inspector-header">
+            <h3><i class="fa-solid fa-list-check"></i> Placed Objects ({{ placedItems.length }})</h3>
+          </div>
+
+          <div class="placed-list" *ngIf="placedItems.length > 0; else emptyPlaced">
+            <div
+              *ngFor="let item of placedItems"
+              class="placed-row"
+              [class.active]="selectedFurniture?.instanceId === item.instanceId"
+              (click)="selectItem(item)"
+            >
+              <div class="icon-circle"><i [class]="getCategoryIcon(item.category)"></i></div>
+              <div class="name-box">
+                <div class="item-name">{{ item.name }}</div>
+                <div class="item-sub">{{ item.x | number:'1.0-0' }}', {{ item.y | number:'1.0-0' }}' • {{ item.rotation }}°</div>
+              </div>
+              <button class="remove-btn" (click)="$event.stopPropagation(); deleteItem(item.instanceId)">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
+          </div>
+
+          <ng-template #emptyPlaced>
+            <div class="empty-state">
+              <i class="fa-solid fa-couch"></i>
+              <p>No 3D furniture placed yet.<br>Click items from the catalog on the left to stage this room!</p>
+            </div>
+          </ng-template>
+        </aside>
       </div>
     </div>
   `,
@@ -193,51 +226,59 @@ import { DesignProject } from '../../core/models/design-project.model';
     .designer-layout {
       display: flex;
       flex-direction: column;
-      height: calc(100vh - 72px);
-      background: #0F172A;
-      color: #F8FAFC;
+      height: 100vh;
+      overflow: hidden;
+      background: #090d16;
+      color: #f1f5f9;
+      font-family: var(--font-sans);
     }
 
-    /* Toolbar Header */
+    /* TOP TOOLBAR */
     .designer-toolbar {
-      height: 56px;
-      background: #1E293B;
-      border-bottom: 1px solid #334155;
+      height: 60px;
+      background: #0f172a;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
       display: flex;
       align-items: center;
       justify-content: space-between;
       padding: 0 20px;
+      z-index: 100;
 
       .brand-sub {
         display: flex;
         align-items: center;
         gap: 10px;
         font-weight: 700;
-        color: #38BDF8;
+        color: var(--primary);
+        font-size: 1rem;
 
-        .project-title {
-          color: white;
-          font-size: 0.95rem;
-        }
+        .project-title { color: #f8fafc; font-weight: 600; }
       }
 
       .view-toggle {
         display: flex;
-        background: #0F172A;
-        padding: 3px;
-        border-radius: var(--radius-sm);
+        background: #1e293b;
+        padding: 4px;
+        border-radius: 8px;
+        gap: 4px;
 
         button {
-          padding: 6px 14px;
-          font-size: 0.82rem;
-          font-weight: 600;
-          color: #94A3B8;
           background: transparent;
+          border: none;
+          color: #94a3b8;
+          padding: 6px 14px;
           border-radius: 6px;
+          font-size: 0.85rem;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          gap: 6px;
 
-          &.active {
+          &.active, &:hover {
             background: var(--primary);
-            color: white;
+            color: #ffffff;
           }
         }
       }
@@ -248,28 +289,27 @@ import { DesignProject } from '../../core/models/design-project.model';
         gap: 8px;
 
         .tool-btn {
+          background: #1e293b;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          color: #cbd5e1;
           padding: 6px 12px;
-          font-size: 0.8rem;
-          font-weight: 600;
-          background: #334155;
-          color: #F1F5F9;
           border-radius: 6px;
+          font-size: 0.82rem;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          transition: all 0.2s ease;
 
           &:hover:not(:disabled) {
-            background: #475569;
+            background: #334155;
+            color: #ffffff;
           }
 
-          &:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-          }
+          &:disabled { opacity: 0.4; cursor: not-allowed; }
 
-          &.active {
-            background: #0284C7;
-          }
-
-          &.btn-danger { background: #991B1B; }
-          &.btn-export { background: #059669; }
+          &.btn-danger:hover { background: #ef4444; border-color: #ef4444; }
+          &.btn-export { background: #06b6d4; color: white; border-color: #06b6d4; }
         }
 
         .btn-save {
@@ -279,752 +319,1023 @@ import { DesignProject } from '../../core/models/design-project.model';
       }
     }
 
-    /* Studio Body */
+    /* STUDIO BODY */
     .studio-body {
       display: flex;
       flex: 1;
       overflow: hidden;
+      position: relative;
     }
 
-    /* Left Catalog Sidebar */
+    /* LEFT SIDEBAR */
     .left-sidebar {
-      width: 340px;
-      background: #1E293B;
-      border-right: 1px solid #334155;
+      width: 320px;
+      background: #0f172a;
+      border-right: 1px solid rgba(255, 255, 255, 0.08);
       display: flex;
       flex-direction: column;
+      z-index: 50;
 
       .sidebar-tabs {
         display: flex;
-        border-bottom: 1px solid #334155;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 
         button {
           flex: 1;
           padding: 12px 8px;
+          background: transparent;
+          border: none;
+          color: #94a3b8;
           font-size: 0.82rem;
           font-weight: 600;
-          color: #94A3B8;
-          background: transparent;
-          border-bottom: 2px solid transparent;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
 
           &.active {
-            color: #38BDF8;
-            border-bottom-color: #38BDF8;
-            background: rgba(56, 189, 248, 0.05);
+            color: var(--primary);
+            border-bottom: 2px solid var(--primary);
+            background: rgba(255, 90, 95, 0.05);
           }
         }
       }
 
       .tab-content {
         padding: 16px;
-        flex: 1;
         overflow-y: auto;
+        flex: 1;
       }
 
       .category-pills {
         display: flex;
-        flex-wrap: wrap;
         gap: 6px;
-        margin-bottom: 16px;
+        flex-wrap: wrap;
+        margin-bottom: 14px;
 
         button {
+          background: #1e293b;
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          color: #94a3b8;
           padding: 4px 10px;
+          border-radius: 999px;
           font-size: 0.75rem;
-          border-radius: var(--radius-full);
-          background: #334155;
-          color: #94A3B8;
+          cursor: pointer;
 
-          &.active {
-            background: #38BDF8;
-            color: #0F172A;
-            font-weight: 700;
+          &.active, &:hover {
+            background: var(--primary);
+            color: white;
           }
         }
       }
 
       .catalog-grid {
         display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 12px;
-      }
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
 
-      .catalog-card {
-        background: #0F172A;
-        border: 1px solid #334155;
-        border-radius: var(--radius-sm);
-        padding: 10px;
-        cursor: pointer;
-        position: relative;
-        transition: all 0.2s ease;
+        .catalog-card {
+          background: #1e293b;
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          border-radius: 8px;
+          padding: 12px;
+          cursor: pointer;
+          position: relative;
+          transition: all 0.2s ease;
 
-        &:hover {
-          border-color: #38BDF8;
-          transform: translateY(-2px);
-          .add-btn { background: #38BDF8; color: #0F172A; }
-        }
+          &:hover {
+            transform: translateY(-2px);
+            border-color: var(--primary);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+          }
 
-        .item-preview {
-          height: 60px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 1.8rem;
-          color: #38BDF8;
-          margin-bottom: 8px;
-        }
+          .item-preview {
+            height: 65px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #090d16;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            position: relative;
 
-        .item-meta {
-          .name { font-size: 0.8rem; font-weight: 700; color: white; margin-bottom: 2px; }
-          .dimensions { font-size: 0.7rem; color: #64748B; }
-        }
+            .item-3d-badge {
+              position: absolute;
+              top: 4px;
+              left: 4px;
+              background: #06b6d4;
+              color: white;
+              font-size: 0.65rem;
+              font-weight: 800;
+              padding: 1px 4px;
+              border-radius: 3px;
+            }
 
-        .add-btn {
-          position: absolute;
-          top: 8px;
-          right: 8px;
-          width: 22px;
-          height: 22px;
-          border-radius: 50%;
-          background: #334155;
-          color: white;
-          font-size: 0.75rem;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-      }
+            .catalog-icon {
+              font-size: 1.8rem;
+              color: #cbd5e1;
+            }
+          }
 
-      /* Swatch Grid */
-      .swatch-grid {
-        display: grid;
-        grid-template-columns: repeat(6, 1fr);
-        gap: 8px;
-        margin-bottom: 20px;
+          .item-meta {
+            .name { font-size: 0.8rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+            .dimensions { font-size: 0.7rem; color: #64748b; margin-top: 2px; }
+          }
 
-        .swatch-btn {
-          height: 36px;
-          border-radius: 6px;
-          border: 2px solid transparent;
-
-          &.active {
-            border-color: white;
-            box-shadow: 0 0 0 2px #38BDF8;
+          .add-btn {
+            position: absolute;
+            bottom: 8px;
+            right: 8px;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            cursor: pointer;
           }
         }
       }
 
-      .custom-color-picker {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        font-size: 0.85rem;
-      }
+      /* Paint & Floor styles */
+      .palette-section {
+        margin-bottom: 24px;
+        h4 { font-size: 0.95rem; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; color: #f8fafc; }
+        .sub-label { font-size: 0.75rem; color: #64748b; margin-bottom: 10px; }
 
-      .presets-section {
-        margin-top: 24px;
-        h4 { font-size: 0.9rem; margin-bottom: 12px; color: #94A3B8; }
-        .template-buttons {
-          display: flex;
-          flex-direction: column;
+        .color-swatches {
+          display: grid;
+          grid-template-columns: repeat(5, 1fr);
           gap: 8px;
 
-          .preset-btn {
-            padding: 10px;
-            background: #334155;
-            color: white;
+          .swatch {
+            height: 36px;
             border-radius: 6px;
-            font-size: 0.85rem;
-            text-align: left;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: transform 0.2s ease;
 
-            &:hover { background: #475569; }
+            &:hover, &.active {
+              transform: scale(1.1);
+              border-color: #ffffff;
+              box-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
+            }
           }
+        }
+
+        .material-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 8px;
+
+          .material-card {
+            background: #1e293b;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 6px;
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            color: #cbd5e1;
+            font-size: 0.75rem;
+            font-weight: 600;
+
+            &.active, &:hover {
+              border-color: var(--primary);
+              background: #334155;
+              color: white;
+            }
+
+            .mat-color-preview {
+              width: 24px;
+              height: 24px;
+              border-radius: 4px;
+            }
+          }
+        }
+      }
+
+      .room-control-group {
+        margin-bottom: 16px;
+        label { display: block; font-size: 0.8rem; margin-bottom: 6px; color: #94a3b8; }
+        input[type="range"] { width: 100%; accent-color: var(--primary); }
+      }
+
+      .room-preset-boxes {
+        margin-top: 20px;
+        h4 { font-size: 0.85rem; margin-bottom: 10px; color: #94a3b8; }
+        .btn-preset {
+          display: block;
+          width: 100%;
+          padding: 8px 12px;
+          background: #1e293b;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          color: #cbd5e1;
+          border-radius: 6px;
+          font-size: 0.8rem;
+          margin-bottom: 8px;
+          cursor: pointer;
+
+          &:hover { background: var(--primary); color: white; }
         }
       }
     }
 
-    /* Workspace Canvas */
-    .canvas-workspace {
+    /* MAIN VIEWPORT */
+    .canvas-viewport {
       flex: 1;
-      display: flex;
-      flex-direction: column;
       position: relative;
-      background: #090D16;
-    }
+      background: #070a12;
+      overflow: hidden;
 
-    .canvas-container {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      overflow: auto;
-
-      canvas {
-        background: #F4F6F9;
-        border-radius: var(--radius-sm);
-        box-shadow: 0 20px 50px rgba(0,0,0,0.6);
-        cursor: crosshair;
+      .threejs-canvas-wrapper {
+        width: 100%;
+        height: 100%;
       }
-    }
 
-    /* Inspector Footer Bar */
-    .item-inspector {
-      height: 52px;
-      background: #1E293B;
-      border-top: 1px solid #334155;
-      padding: 0 24px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
+      .canvas-2d {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
 
-      .inspector-info {
+      .viewport-hints {
+        position: absolute;
+        bottom: 16px;
+        left: 16px;
+        display: flex;
+        gap: 8px;
+        pointer-events: none;
+
+        .hint-pill {
+          background: rgba(15, 23, 42, 0.8);
+          backdrop-filter: blur(8px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          color: #94a3b8;
+          padding: 6px 12px;
+          border-radius: 999px;
+          font-size: 0.75rem;
+
+          strong { color: #f8fafc; }
+          i { color: var(--primary); margin-right: 4px; }
+        }
+      }
+
+      .selected-item-toolbar {
+        position: absolute;
+        top: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(15, 23, 42, 0.95);
+        backdrop-filter: blur(12px);
+        border: 1px solid var(--primary);
+        border-radius: 999px;
+        padding: 6px 18px;
         display: flex;
         align-items: center;
         gap: 16px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 
-        .item-title { font-weight: 700; color: white; font-size: 0.95rem; }
-        .item-coords { font-size: 0.8rem; color: #94A3B8; }
+        .selected-title {
+          font-size: 0.85rem;
+          font-weight: 700;
+          color: #f8fafc;
+          i { color: var(--primary); }
+        }
+
+        .actions {
+          display: flex;
+          gap: 6px;
+
+          button {
+            background: #1e293b;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #cbd5e1;
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            cursor: pointer;
+
+            &:hover { background: var(--primary); color: white; }
+            &.btn-del:hover { background: #ef4444; }
+          }
+        }
+      }
+    }
+
+    /* RIGHT SIDEBAR */
+    .right-sidebar {
+      width: 280px;
+      background: #0f172a;
+      border-left: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      flex-direction: column;
+
+      .inspector-header {
+        padding: 16px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        h3 { font-size: 0.9rem; margin: 0; color: #f8fafc; }
       }
 
-      .inspector-controls {
-        display: flex;
-        align-items: center;
-        gap: 12px;
+      .placed-list {
+        padding: 12px;
+        overflow-y: auto;
+        flex: 1;
 
-        .insp-btn {
-          padding: 6px 12px;
-          font-size: 0.8rem;
-          background: #334155;
-          color: white;
-          border-radius: 6px;
-        }
-
-        .color-picker-inline {
+        .placed-row {
           display: flex;
           align-items: center;
-          gap: 6px;
-          font-size: 0.8rem;
-          color: #94A3B8;
+          gap: 10px;
+          background: #1e293b;
+          border: 1px solid rgba(255, 255, 255, 0.06);
+          padding: 8px 12px;
+          border-radius: 8px;
+          margin-bottom: 8px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+
+          &:hover, &.active {
+            border-color: var(--primary);
+            background: #334155;
+          }
+
+          .icon-circle {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #090d16;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+          }
+
+          .name-box {
+            flex: 1;
+            .item-name { font-size: 0.8rem; font-weight: 700; }
+            .item-sub { font-size: 0.7rem; color: #64748b; }
+          }
+
+          .remove-btn {
+            background: transparent;
+            border: none;
+            color: #64748b;
+            cursor: pointer;
+            font-size: 0.8rem;
+
+            &:hover { color: #ef4444; }
+          }
         }
+      }
+
+      .empty-state {
+        padding: 40px 20px;
+        text-align: center;
+        color: #64748b;
+        i { font-size: 2rem; margin-bottom: 12px; color: #334155; }
+        p { font-size: 0.82rem; line-height: 1.5; margin: 0; }
       }
     }
   `]
 })
-export class DesignerComponent implements OnInit, AfterViewInit {
-  @ViewChild('studioCanvas') canvasRef!: ElementRef<HTMLCanvasElement>;
+export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
+  @ViewChild('threeCanvasContainer') threeCanvasContainer!: ElementRef<HTMLDivElement>;
+  @ViewChild('canvas2D') canvas2DRef!: ElementRef<HTMLCanvasElement>;
 
   furnitureService = inject(FurnitureService);
   designService = inject(DesignService);
   propertyService = inject(PropertyService);
   route = inject(ActivatedRoute);
 
-  viewMode: 'TOP_DOWN' | 'FRONT' = 'TOP_DOWN';
+  viewMode: '3D' | 'TOP_DOWN' | 'FRONT' = '3D';
   activeTab: 'FURNITURE' | 'PAINT' | 'ROOM' = 'FURNITURE';
-  categories = ['All', 'Living Room', 'Bedroom', 'Kitchen', 'Bathroom', 'Office', 'Decor'];
-  selectedCategory = 'All';
-
-  wallColor = '#F5F5F7';
-  floorColor = '#D4C4B3';
-  roomWidth = 24;  // feet
-  roomHeight = 18; // feet
-  snapToGrid = true;
+  selectedCategory = 'Living Room';
+  categories = ['Living Room', 'Bedroom', 'Kitchen', 'Bathroom', 'Office', 'Decor'];
 
   catalog: FurnitureItem[] = [];
   placedItems: PlacedFurniture[] = [];
   selectedFurniture: PlacedFurniture | null = null;
 
-  // History stack for Undo/Redo
-  historyStack: string[] = [];
-  historyIndex = -1;
+  // Room Dimensions (in Feet)
+  roomWidthFt = 20;
+  roomLengthFt = 16;
+  roomHeightFt = 10;
 
-  // Drag state
-  isDragging = false;
-  dragOffsetX = 0;
-  dragOffsetY = 0;
+  // 3D Three.js Engine Variables
+  private scene: any;
+  private camera: any;
+  private renderer: any;
+  private controls: any;
+  private roomMeshGroup: any;
+  private furnitureMeshMap = new Map<string, any>();
+  private dirLight: any;
+  private ambientLight: any;
+  private animationFrameId: any;
 
-  // Swatches
-  wallSwatches = [
-    { name: 'Warm White', hex: '#F5F5F7' },
-    { name: 'Nordic Blue', hex: '#E2E8F0' },
-    { name: 'Soft Sage', hex: '#E2E8DF' },
-    { name: 'Charcoal', hex: '#334155' },
-    { name: 'Terracotta', hex: '#E2D4C3' },
-    { name: 'Blush Pink', hex: '#FCE7F3' }
+  isNightMode = false;
+  wallColor = '#E2E8F0';
+  floorMaterialType: 'WOOD' | 'TILE' | 'CARPET' | 'CONCRETE' = 'WOOD';
+
+  wallPalette = [
+    { name: 'Warm Alabaster', hex: '#F8FAFC' },
+    { name: 'Modern Slate', hex: '#E2E8F0' },
+    { name: 'Sage Green', hex: '#CBD5E1' },
+    { name: 'Nordic Clay', hex: '#E2D9D0' },
+    { name: 'Midnight Blue', hex: '#1E293B' },
+    { name: 'Charcoal Accent', hex: '#334155' },
+    { name: 'Blush Coral', hex: '#FFE4E6' },
+    { name: 'Terracotta', hex: '#E07A5F' },
+    { name: 'Emerald Forest', hex: '#2D6A4F' },
+    { name: 'Oatmeal Beige', hex: '#F3E9DC' }
   ];
 
-  floorSwatches = [
-    { name: 'Light Oak Wood', hex: '#D4C4B3' },
-    { name: 'Dark Walnut', hex: '#744210' },
-    { name: 'Modern Concrete', hex: '#94A3B8' },
-    { name: 'Marble Tile', hex: '#EDF2F7' },
-    { name: 'Deep Navy Carpet', hex: '#1E293B' },
-    { name: 'Warm Amber Wood', hex: '#B45309' }
+  floorMaterials: { id: 'WOOD' | 'TILE' | 'CARPET' | 'CONCRETE'; name: string; preview: string }[] = [
+    { id: 'WOOD', name: 'Oak Hardwood', preview: 'linear-gradient(135deg, #c29b61, #8b5a2b)' },
+    { id: 'TILE', name: 'Carrara Marble', preview: 'linear-gradient(135deg, #f8fafc, #cbd5e1)' },
+    { id: 'CONCRETE', name: 'Gray Slate Tile', preview: 'linear-gradient(135deg, #475569, #1e293b)' },
+    { id: 'CARPET', name: 'Luxury Carpet', preview: 'linear-gradient(135deg, #e2e8f0, #94a3b8)' }
   ];
 
   currentProject: DesignProject = {
-    name: 'Untitled Design Project',
-    roomWidth: 24,
-    roomHeight: 18,
+    id: 'proj-' + Date.now(),
+    name: '3D Luxury Interior Design Studio',
+    roomWidth: 20,
+    roomHeight: 16,
     roomShape: 'RECTANGLE',
-    wallColor: '#F5F5F7',
-    floorColor: '#D4C4B3',
+    wallColor: '#E2E8F0',
+    floorColor: '#c29b61',
     floorTexture: 'WOOD',
-    placedFurniture: []
+    placedFurniture: [],
+    createdAt: new Date().toISOString()
   };
 
-  ngOnInit() {
-    this.furnitureService.getCatalog().subscribe(items => {
-      this.catalog = items;
-    });
+  historyStack: PlacedFurniture[][] = [];
+  historyIndex = 0;
 
-    this.route.queryParams.subscribe(params => {
-      if (params['propertyId']) {
-        this.propertyService.getPropertyById(params['propertyId']).subscribe(prop => {
-          if (prop) {
-            this.currentProject.name = prop.title + ' — Design Studio';
-            this.currentProject.propertyId = prop.id;
-          }
-        });
-      }
+  get filteredCatalog(): FurnitureItem[] {
+    return this.catalog.filter(item => item.category === this.selectedCategory);
+  }
+
+  ngOnInit() {
+    this.furnitureService.getCatalog().subscribe((items: FurnitureItem[]) => {
+      this.catalog = items;
+      this.loadInitialTemplate();
     });
   }
 
   ngAfterViewInit() {
-    this.designService.getSavedDesigns().subscribe(designs => {
-      if (designs.length > 0) {
-        this.loadProject(designs[0]);
-      } else {
-        this.renderCanvas();
-        this.recordHistory();
-      }
-    });
+    setTimeout(() => {
+      this.initThreeJSEngine();
+    }, 200);
   }
 
-  get filteredCatalog(): FurnitureItem[] {
-    if (this.selectedCategory === 'All') return this.catalog;
-    return this.catalog.filter(i => i.category === this.selectedCategory);
-  }
-
-  getCategoryIcon(cat: string): string {
-    switch (cat) {
-      case 'Living Room': return 'fa-solid fa-couch';
-      case 'Bedroom': return 'fa-solid fa-bed';
-      case 'Kitchen': return 'fa-solid fa-utensils';
-      case 'Bathroom': return 'fa-solid fa-bath';
-      case 'Office': return 'fa-solid fa-laptop';
-      case 'Decor': return 'fa-solid fa-plant-wilt';
-      default: return 'fa-solid fa-cube';
+  ngOnDestroy() {
+    if (this.animationFrameId) {
+      cancelAnimationFrame(this.animationFrameId);
     }
   }
 
-  setViewMode(mode: 'TOP_DOWN' | 'FRONT') {
-    this.viewMode = mode;
-    this.renderCanvas();
+  // 1. THREE.JS 3D ENGINE INITIALIZATION
+  initThreeJSEngine() {
+    if (typeof THREE === 'undefined' || !this.threeCanvasContainer) return;
+
+    const container = this.threeCanvasContainer.nativeElement;
+    const width = container.clientWidth || 800;
+    const height = container.clientHeight || 600;
+
+    // Scene
+    this.scene = new THREE.Scene();
+    this.scene.background = new THREE.Color(0x070a12);
+
+    // Camera
+    this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+    this.camera.position.set(16, 14, 20);
+
+    // Renderer
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+    this.renderer.setSize(width, height);
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.setPixelRatio(window.devicePixelRatio);
+    container.innerHTML = '';
+    container.appendChild(this.renderer.domElement);
+
+    // OrbitControls
+    if ((THREE as any).OrbitControls) {
+      this.controls = new (THREE as any).OrbitControls(this.camera, this.renderer.domElement);
+      this.controls.enableDamping = true;
+      this.controls.dampingFactor = 0.05;
+      this.controls.maxPolarAngle = Math.PI / 2 - 0.05; // Prevent camera going below floor
+      this.controls.target.set(0, 2, 0);
+    }
+
+    // Lighting
+    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+    this.scene.add(this.ambientLight);
+
+    this.dirLight = new THREE.DirectionalLight(0xfff8e7, 0.85);
+    this.dirLight.position.set(15, 25, 15);
+    this.dirLight.castShadow = true;
+    this.dirLight.shadow.mapSize.width = 2048;
+    this.dirLight.shadow.mapSize.height = 2048;
+    this.scene.add(this.dirLight);
+
+    // Build 3D Room
+    this.build3DRoom();
+
+    // Render loop
+    const animate = () => {
+      this.animationFrameId = requestAnimationFrame(animate);
+      if (this.controls) this.controls.update();
+      this.renderer.render(this.scene, this.camera);
+    };
+    animate();
+
+    // Resize listener
+    window.addEventListener('resize', () => {
+      if (!this.threeCanvasContainer) return;
+      const w = this.threeCanvasContainer.nativeElement.clientWidth;
+      const h = this.threeCanvasContainer.nativeElement.clientHeight;
+      this.camera.aspect = w / h;
+      this.camera.updateProjectionMatrix();
+      this.renderer.setSize(w, h);
+    });
+
+    // Raycasting for object selection
+    this.renderer.domElement.addEventListener('click', (e: MouseEvent) => this.on3DCanvasClick(e));
   }
 
-  toggleSnapGrid() {
-    this.snapToGrid = !this.snapToGrid;
+  // 2. 3D PROCEDURAL ROOM GENERATOR
+  build3DRoom() {
+    if (this.roomMeshGroup) {
+      this.scene.remove(this.roomMeshGroup);
+    }
+
+    this.roomMeshGroup = new THREE.Group();
+
+    const w = this.roomWidthFt;
+    const l = this.roomLengthFt;
+    const h = this.roomHeightFt;
+
+    // Floor Mesh
+    let floorColor = 0xc29b61;
+    if (this.floorMaterialType === 'TILE') floorColor = 0xf1f5f9;
+    if (this.floorMaterialType === 'CONCRETE') floorColor = 0x334155;
+    if (this.floorMaterialType === 'CARPET') floorColor = 0x94a3b8;
+
+    const floorGeo = new THREE.PlaneGeometry(w, l);
+    const floorMat = new THREE.MeshStandardMaterial({
+      color: floorColor,
+      roughness: this.floorMaterialType === 'TILE' ? 0.2 : 0.7,
+      metalness: 0.1
+    });
+    const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+    floorMesh.rotation.x = -Math.PI / 2;
+    floorMesh.receiveShadow = true;
+    this.roomMeshGroup.add(floorMesh);
+
+    // Back Wall (North)
+    const wallColorHex = parseInt(this.wallColor.replace('#', '0x'), 16);
+    const wallMat = new THREE.MeshStandardMaterial({ color: wallColorHex, roughness: 0.85 });
+
+    const backWallGeo = new THREE.PlaneGeometry(w, h);
+    const backWall = new THREE.Mesh(backWallGeo, wallMat);
+    backWall.position.set(0, h / 2, -l / 2);
+    backWall.receiveShadow = true;
+    this.roomMeshGroup.add(backWall);
+
+    // Left Wall (West)
+    const leftWallGeo = new THREE.PlaneGeometry(l, h);
+    const leftWall = new THREE.Mesh(leftWallGeo, wallMat);
+    leftWall.rotation.y = Math.PI / 2;
+    leftWall.position.set(-w / 2, h / 2, 0);
+    leftWall.receiveShadow = true;
+    this.roomMeshGroup.add(leftWall);
+
+    // Baseboards
+    const baseMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
+    const baseBackGeo = new THREE.BoxGeometry(w, 0.4, 0.1);
+    const baseBack = new THREE.Mesh(baseBackGeo, baseMat);
+    baseBack.position.set(0, 0.2, -l / 2 + 0.05);
+    this.roomMeshGroup.add(baseBack);
+
+    this.scene.add(this.roomMeshGroup);
   }
 
-  setWallColor(color: string) {
-    this.wallColor = color;
-    this.renderCanvas();
-    this.recordHistory();
+  // 3. 3D PROCEDURAL FURNITURE MESH BUILDER
+  create3DMesh(item: FurnitureItem, placed: PlacedFurniture): any {
+    const group = new THREE.Group();
+    const name = item.name.toLowerCase();
+
+    // Default Materials
+    const woodMat = new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.6 });
+    const fabricColor = placed.color ? parseInt(placed.color.replace('#', '0x'), 16) : 0x334155;
+    const fabricMat = new THREE.MeshStandardMaterial({ color: fabricColor, roughness: 0.8 });
+    const metalMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.3 });
+
+    if (name.includes('sofa') || name.includes('couch') || name.includes('sectional')) {
+      // 3D SOFA MESH
+      const baseGeo = new THREE.BoxGeometry(4.8, 0.8, 2.2);
+      const base = new THREE.Mesh(baseGeo, fabricMat);
+      base.position.y = 0.6;
+      base.castShadow = true;
+      group.add(base);
+
+      // Backrest
+      const backGeo = new THREE.BoxGeometry(4.8, 1.8, 0.6);
+      const back = new THREE.Mesh(backGeo, fabricMat);
+      back.position.set(0, 1.6, -0.9);
+      back.castShadow = true;
+      group.add(back);
+
+      // Armrests
+      const armGeo = new THREE.BoxGeometry(0.5, 1.2, 2.3);
+      const armLeft = new THREE.Mesh(armGeo, fabricMat);
+      armLeft.position.set(-2.4, 1.1, 0);
+      const armRight = armLeft.clone();
+      armRight.position.x = 2.4;
+      group.add(armLeft, armRight);
+
+      // Wooden Legs
+      const legGeo = new THREE.CylinderGeometry(0.08, 0.05, 0.4);
+      for (const [lx, lz] of [[-2.2, 0.9], [2.2, 0.9], [-2.2, -0.9], [2.2, -0.9]]) {
+        const leg = new THREE.Mesh(legGeo, woodMat);
+        leg.position.set(lx, 0.2, lz);
+        group.add(leg);
+      }
+    } else if (name.includes('bed')) {
+      // 3D BED MESH
+      const frameGeo = new THREE.BoxGeometry(4.5, 0.8, 5.5);
+      const frame = new THREE.Mesh(frameGeo, woodMat);
+      frame.position.y = 0.4;
+      group.add(frame);
+
+      // Mattress & Duvet
+      const mattressGeo = new THREE.BoxGeometry(4.2, 0.8, 5.2);
+      const mattress = new THREE.Mesh(mattressGeo, new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.9 }));
+      mattress.position.y = 1.0;
+      group.add(mattress);
+
+      // Headboard
+      const headGeo = new THREE.BoxGeometry(4.6, 2.8, 0.4);
+      const headboard = new THREE.Mesh(headGeo, fabricMat);
+      headboard.position.set(0, 1.6, -2.6);
+      group.add(headboard);
+
+      // Pillows
+      const pillowGeo = new THREE.BoxGeometry(1.5, 0.3, 1.0);
+      const pillowMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+      const p1 = new THREE.Mesh(pillowGeo, pillowMat);
+      p1.position.set(-1.1, 1.5, -1.8);
+      const p2 = p1.clone();
+      p2.position.x = 1.1;
+      group.add(p1, p2);
+    } else if (name.includes('table') || name.includes('desk')) {
+      // 3D COFFEE / DINING TABLE
+      const topGeo = new THREE.BoxGeometry(3.2, 0.15, 2.0);
+      const top = new THREE.Mesh(topGeo, woodMat);
+      top.position.y = 1.5;
+      top.castShadow = true;
+      group.add(top);
+
+      const legGeo = new THREE.CylinderGeometry(0.08, 0.05, 1.5);
+      for (const [tx, tz] of [[-1.4, 0.8], [1.4, 0.8], [-1.4, -0.8], [1.4, -0.8]]) {
+        const leg = new THREE.Mesh(legGeo, metalMat);
+        leg.position.set(tx, 0.75, tz);
+        group.add(leg);
+      }
+    } else if (name.includes('tv') || name.includes('entertainment') || name.includes('console')) {
+      // 3D TV & CONSOLE
+      const consoleGeo = new THREE.BoxGeometry(4.5, 1.2, 1.2);
+      const consoleMesh = new THREE.Mesh(consoleGeo, woodMat);
+      consoleMesh.position.y = 0.6;
+      group.add(consoleMesh);
+
+      // Flat Screen TV
+      const screenGeo = new THREE.BoxGeometry(3.8, 2.2, 0.1);
+      const screen = new THREE.Mesh(screenGeo, new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.1 }));
+      screen.position.set(0, 2.2, 0);
+      group.add(screen);
+    } else if (name.includes('plant')) {
+      // 3D MONSTERA HOUSEPLANT
+      const potGeo = new THREE.CylinderGeometry(0.6, 0.4, 1.2);
+      const pot = new THREE.Mesh(potGeo, new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.4 }));
+      pot.position.y = 0.6;
+      group.add(pot);
+
+      const leafMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.5 });
+      for (let i = 0; i < 6; i++) {
+        const leafGeo = new THREE.SphereGeometry(0.5, 6, 6);
+        const leaf = new THREE.Mesh(leafGeo, leafMat);
+        leaf.scale.set(0.8, 0.1, 1.2);
+        leaf.position.set(Math.cos(i) * 0.4, 1.4 + i * 0.15, Math.sin(i) * 0.4);
+        leaf.rotation.x = Math.random() * 0.5;
+        group.add(leaf);
+      }
+    } else if (name.includes('lamp')) {
+      // 3D MODERN FLOOR LAMP
+      const baseGeo = new THREE.CylinderGeometry(0.6, 0.6, 0.08);
+      const base = new THREE.Mesh(baseGeo, metalMat);
+      group.add(base);
+
+      const poleGeo = new THREE.CylinderGeometry(0.04, 0.04, 5.0);
+      const pole = new THREE.Mesh(poleGeo, metalMat);
+      pole.position.y = 2.5;
+      group.add(pole);
+
+      const shadeGeo = new THREE.ConeGeometry(0.8, 0.8, 16, 1, true);
+      const shade = new THREE.Mesh(shadeGeo, new THREE.MeshStandardMaterial({ color: 0xf8fafc, side: THREE.DoubleSide }));
+      shade.position.y = 5.0;
+      group.add(shade);
+
+      // Real 3D Point Light from Lamp!
+      const lampLight = new THREE.PointLight(0xffe4a0, 1.2, 8);
+      lampLight.position.set(0, 4.8, 0);
+      group.add(lampLight);
+    } else {
+      // Generic Modern Furniture Cube
+      const geo = new THREE.BoxGeometry(2, 2, 2);
+      const mesh = new THREE.Mesh(geo, fabricMat);
+      mesh.position.y = 1;
+      mesh.castShadow = true;
+      group.add(mesh);
+    }
+
+    // Set position & rotation based on room scale
+    const posX = (placed.x / 100) * (this.roomWidthFt / 2) - this.roomWidthFt / 4;
+    const posZ = (placed.y / 100) * (this.roomLengthFt / 2) - this.roomLengthFt / 4;
+    group.position.set(posX, 0, posZ);
+    group.rotation.y = (placed.rotation * Math.PI) / 180;
+    group.userData = { id: placed.instanceId };
+
+    return group;
   }
 
-  setFloorColor(color: string) {
-    this.floorColor = color;
-    this.renderCanvas();
-    this.recordHistory();
-  }
-
-  addFurnitureToCanvas(item: FurnitureItem) {
-    const newItem: PlacedFurniture = {
-      instanceId: 'inst-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+  // 4. ADD FURNITURE TO 3D ROOM
+  add3DFurniture(item: FurnitureItem) {
+    const newPlaced: PlacedFurniture = {
+      instanceId: 'inst-' + Date.now(),
       furnitureId: item.id,
       name: item.name,
       category: item.category,
-      x: this.roomWidth / 2 - item.defaultWidth / 2,
-      y: this.roomHeight / 2 - item.defaultHeight / 2,
+      x: 40 + Math.random() * 20,
+      y: 40 + Math.random() * 20,
       width: item.defaultWidth,
       height: item.defaultHeight,
       rotation: 0,
-      color: item.defaultColor || '#4A5568',
-      viewMode: 'TOP_DOWN',
-      iconSvg: item.iconSvg
+      color: '#1E293B',
+      viewMode: 'TOP_DOWN'
     };
 
-    this.placedItems.push(newItem);
-    this.selectedFurniture = newItem;
-    this.renderCanvas();
-    this.recordHistory();
+    this.placedItems.push(newPlaced);
+    this.selectedFurniture = newPlaced;
+
+    if (this.scene) {
+      const mesh = this.create3DMesh(item, newPlaced);
+      this.furnitureMeshMap.set(newPlaced.instanceId, mesh);
+      this.scene.add(mesh);
+    }
+
+    this.saveHistoryState();
   }
 
-  // Record Canvas State for Undo/Redo
-  recordHistory() {
-    const state = JSON.stringify({
-      placedItems: this.placedItems,
-      wallColor: this.wallColor,
-      floorColor: this.floorColor,
-      roomWidth: this.roomWidth,
-      roomHeight: this.roomHeight
-    });
+  // 5. 3D RAYCASTING CLICK LISTENER
+  on3DCanvasClick(event: MouseEvent) {
+    if (!this.renderer || !this.camera || !this.scene) return;
 
-    if (this.historyIndex < this.historyStack.length - 1) {
-      this.historyStack = this.historyStack.slice(0, this.historyIndex + 1);
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    const mouse = new THREE.Vector2(
+      ((event.clientX - rect.left) / rect.width) * 2 - 1,
+      -((event.clientY - rect.top) / rect.height) * 2 + 1
+    );
+
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(mouse, this.camera);
+
+    const meshes = Array.from(this.furnitureMeshMap.values());
+    const intersects = raycaster.intersectObjects(meshes, true);
+
+    if (intersects.length > 0) {
+      let root = intersects[0].object;
+      while (root.parent && root.parent !== this.scene) {
+        root = root.parent;
+      }
+      const itemId = root.userData?.id;
+      if (itemId) {
+        const found = this.placedItems.find(p => p.instanceId === itemId);
+        if (found) {
+          this.selectedFurniture = found;
+        }
+      }
     }
-    this.historyStack.push(state);
+  }
+
+  // 6. 3D CONTROLS (Rotate, Delete, Color)
+  rotateSelected(degrees: number) {
+    if (!this.selectedFurniture) return;
+    this.selectedFurniture.rotation = (this.selectedFurniture.rotation + degrees) % 360;
+
+    const mesh = this.furnitureMeshMap.get(this.selectedFurniture.instanceId);
+    if (mesh) {
+      mesh.rotation.y = (this.selectedFurniture.rotation * Math.PI) / 180;
+    }
+    this.saveHistoryState();
+  }
+
+  changeColorSelected() {
+    if (!this.selectedFurniture) return;
+    const colors = ['#1E293B', '#FF5A5F', '#00A699', '#D97706', '#2563EB', '#475569', '#E2E8F0'];
+    const next = colors[(colors.indexOf(this.selectedFurniture.color || colors[0]) + 1) % colors.length];
+    this.selectedFurniture.color = next;
+
+    // Rebuild mesh with new color
+    const oldMesh = this.furnitureMeshMap.get(this.selectedFurniture.instanceId);
+    if (oldMesh) {
+      this.scene.remove(oldMesh);
+      const item = this.catalog.find(c => c.id === this.selectedFurniture?.furnitureId) || this.catalog[0];
+      const newMesh = this.create3DMesh(item, this.selectedFurniture);
+      this.furnitureMeshMap.set(this.selectedFurniture.instanceId, newMesh);
+      this.scene.add(newMesh);
+    }
+  }
+
+  deleteSelected() {
+    if (!this.selectedFurniture) return;
+    this.deleteItem(this.selectedFurniture.instanceId);
+  }
+
+  deleteItem(id: string) {
+    const mesh = this.furnitureMeshMap.get(id);
+    if (mesh && this.scene) {
+      this.scene.remove(mesh);
+      this.furnitureMeshMap.delete(id);
+    }
+    this.placedItems = this.placedItems.filter(p => p.instanceId !== id);
+    if (this.selectedFurniture?.instanceId === id) {
+      this.selectedFurniture = null;
+    }
+    this.saveHistoryState();
+  }
+
+  selectItem(item: PlacedFurniture) {
+    this.selectedFurniture = item;
+  }
+
+  clearAllFurniture() {
+    this.placedItems.forEach(p => {
+      const mesh = this.furnitureMeshMap.get(p.instanceId);
+      if (mesh && this.scene) this.scene.remove(mesh);
+    });
+    this.furnitureMeshMap.clear();
+    this.placedItems = [];
+    this.selectedFurniture = null;
+    this.saveHistoryState();
+  }
+
+  // 7. MATERIAL & LIGHTING CONTROLS
+  setWallColor(color: string) {
+    this.wallColor = color;
+    this.build3DRoom();
+  }
+
+  setFloorMaterial(matId: 'WOOD' | 'TILE' | 'CARPET' | 'CONCRETE') {
+    this.floorMaterialType = matId;
+    this.build3DRoom();
+  }
+
+  toggleDayNight() {
+    this.isNightMode = !this.isNightMode;
+    if (this.scene) {
+      if (this.isNightMode) {
+        this.scene.background = new THREE.Color(0x020617);
+        this.ambientLight.intensity = 0.2;
+        this.dirLight.intensity = 0.1;
+      } else {
+        this.scene.background = new THREE.Color(0x070a12);
+        this.ambientLight.intensity = 0.65;
+        this.dirLight.intensity = 0.85;
+      }
+    }
+  }
+
+  resetCameraView() {
+    if (this.camera && this.controls) {
+      this.camera.position.set(16, 14, 20);
+      this.controls.target.set(0, 2, 0);
+      this.controls.update();
+    }
+  }
+
+  updateRoomDimensions() {
+    this.build3DRoom();
+  }
+
+  applyRoomPreset(type: string) {
+    this.clearAllFurniture();
+    if (type === 'LIVING') {
+      this.setFloorMaterial('WOOD');
+      this.setWallColor('#E2E8F0');
+      const sofa = this.catalog.find(c => c.name.includes('Sofa')) || this.catalog[0];
+      const table = this.catalog.find(c => c.name.includes('Table')) || this.catalog[1];
+      const tv = this.catalog.find(c => c.name.includes('TV')) || this.catalog[2];
+      if (sofa) this.add3DFurniture(sofa);
+      if (table) this.add3DFurniture(table);
+      if (tv) this.add3DFurniture(tv);
+    } else if (type === 'BEDROOM') {
+      this.setFloorMaterial('CARPET');
+      this.setWallColor('#F8FAFC');
+      const bed = this.catalog.find(c => c.name.includes('Bed')) || this.catalog[0];
+      if (bed) this.add3DFurniture(bed);
+    }
+  }
+
+  // 8. VIEW SWITCHER
+  setViewMode(mode: '3D' | 'TOP_DOWN' | 'FRONT') {
+    this.viewMode = mode;
+    if (mode === '3D') {
+      setTimeout(() => {
+        if (this.camera && this.controls) {
+          this.camera.position.set(16, 14, 20);
+          this.controls.target.set(0, 2, 0);
+        }
+      }, 100);
+    }
+  }
+
+  // 9. EXPORT & SAVE
+  exportStudioSnapshot() {
+    if (this.renderer) {
+      const dataUrl = this.renderer.domElement.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.download = `omnispace-3d-design-${Date.now()}.png`;
+      link.href = dataUrl;
+      link.click();
+    }
+  }
+
+  saveProject() {
+    this.currentProject.placedFurniture = this.placedItems;
+    this.currentProject.floorTexture = this.floorMaterialType;
+    this.currentProject.wallColor = this.wallColor;
+
+    this.designService.saveDesign(this.currentProject).subscribe(() => {
+      alert('🎉 3D Interior Design Project Saved Successfully!');
+    });
+  }
+
+  saveHistoryState() {
+    this.historyStack.push(JSON.parse(JSON.stringify(this.placedItems)));
     this.historyIndex = this.historyStack.length - 1;
   }
 
   undo() {
     if (this.historyIndex > 0) {
       this.historyIndex--;
-      this.restoreHistoryState(this.historyStack[this.historyIndex]);
+      this.placedItems = JSON.parse(JSON.stringify(this.historyStack[this.historyIndex]));
+      this.rebuildAllMeshes();
     }
   }
 
-  redo() {
-    if (this.historyIndex < this.historyStack.length - 1) {
-      this.historyIndex++;
-      this.restoreHistoryState(this.historyStack[this.historyIndex]);
-    }
-  }
+  rebuildAllMeshes() {
+    this.placedItems.forEach(p => {
+      const oldMesh = this.furnitureMeshMap.get(p.instanceId);
+      if (oldMesh && this.scene) this.scene.remove(oldMesh);
+    });
+    this.furnitureMeshMap.clear();
 
-  private restoreHistoryState(stateJson: string) {
-    const data = JSON.parse(stateJson);
-    this.placedItems = data.placedItems;
-    this.wallColor = data.wallColor;
-    this.floorColor = data.floorColor;
-    this.roomWidth = data.roomWidth;
-    this.roomHeight = data.roomHeight;
-    this.selectedFurniture = null;
-    this.renderCanvas();
-  }
-
-  rotateSelected(deg: number) {
-    if (this.selectedFurniture) {
-      this.selectedFurniture.rotation = (this.selectedFurniture.rotation + deg + 360) % 360;
-      this.renderCanvas();
-      this.recordHistory();
-    }
-  }
-
-  deleteSelected() {
-    if (this.selectedFurniture) {
-      this.placedItems = this.placedItems.filter(i => i.instanceId !== this.selectedFurniture?.instanceId);
-      this.selectedFurniture = null;
-      this.renderCanvas();
-      this.recordHistory();
-    }
-  }
-
-  clearCanvas() {
-    if (confirm('Are you sure you want to clear all furniture items?')) {
-      this.placedItems = [];
-      this.selectedFurniture = null;
-      this.renderCanvas();
-      this.recordHistory();
-    }
-  }
-
-  applyTemplate(type: string) {
-    if (type === 'STUDIO') {
-      this.roomWidth = 16;
-      this.roomHeight = 14;
-      this.wallColor = '#F5F5F7';
-      this.floorColor = '#D4C4B3';
-    } else if (type === 'LIVING') {
-      this.roomWidth = 24;
-      this.roomHeight = 18;
-      this.wallColor = '#E2E8F0';
-      this.floorColor = '#744210';
-    } else if (type === 'OFFICE') {
-      this.roomWidth = 30;
-      this.roomHeight = 20;
-      this.wallColor = '#334155';
-      this.floorColor = '#94A3B8';
-    }
-    this.renderCanvas();
-    this.recordHistory();
-  }
-
-  saveProject() {
-    this.currentProject.roomWidth = this.roomWidth;
-    this.currentProject.roomHeight = this.roomHeight;
-    this.currentProject.wallColor = this.wallColor;
-    this.currentProject.floorColor = this.floorColor;
-    this.currentProject.placedFurniture = this.placedItems;
-
-    this.designService.saveDesign(this.currentProject).subscribe(saved => {
-      alert(`Design "${saved.name}" saved successfully!`);
+    this.placedItems.forEach(p => {
+      const item = this.catalog.find(c => c.id === p.furnitureId) || this.catalog[0];
+      const mesh = this.create3DMesh(item, p);
+      this.furnitureMeshMap.set(p.instanceId, mesh);
+      this.scene.add(mesh);
     });
   }
 
-  loadProject(project: DesignProject) {
-    this.currentProject = project;
-    this.roomWidth = project.roomWidth;
-    this.roomHeight = project.roomHeight;
-    this.wallColor = project.wallColor;
-    this.floorColor = project.floorColor;
-    this.placedItems = project.placedFurniture;
-    this.renderCanvas();
-    this.recordHistory();
-  }
-
-  exportAsPNG() {
-    const canvas = this.canvasRef.nativeElement;
-    const link = document.createElement('a');
-    link.download = `${this.currentProject.name.replace(/\\s+/g, '_')}_design.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
-  }
-
-  /* --------------------------------------------------------------------------
-     HTML5 CANVAS RENDERING ENGINE
-     -------------------------------------------------------------------------- */
-  renderCanvas() {
-    if (!this.canvasRef) return;
-    const canvas = this.canvasRef.nativeElement;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    // Set canvas dimensions
-    const scale = 25; // 25 pixels per foot
-    const canvasW = this.roomWidth * scale + 100;
-    const canvasH = this.roomHeight * scale + 100;
-    canvas.width = canvasW;
-    canvas.height = canvasH;
-
-    const offsetX = 50;
-    const offsetY = 50;
-
-    // Clear
-    ctx.clearRect(0, 0, canvasW, canvasH);
-
-    if (this.viewMode === 'TOP_DOWN') {
-      // 1. Render Floor
-      ctx.fillStyle = this.floorColor;
-      ctx.fillRect(offsetX, offsetY, this.roomWidth * scale, this.roomHeight * scale);
-
-      // Floor grid lines
-      ctx.strokeStyle = 'rgba(0,0,0,0.06)';
-      ctx.lineWidth = 1;
-      for (let x = 0; x <= this.roomWidth; x++) {
-        ctx.beginPath();
-        ctx.moveTo(offsetX + x * scale, offsetY);
-        ctx.lineTo(offsetX + x * scale, offsetY + this.roomHeight * scale);
-        ctx.stroke();
+  loadInitialTemplate() {
+    setTimeout(() => {
+      if (this.catalog.length > 0 && this.placedItems.length === 0) {
+        this.applyRoomPreset('LIVING');
       }
-      for (let y = 0; y <= this.roomHeight; y++) {
-        ctx.beginPath();
-        ctx.moveTo(offsetX, offsetY + y * scale);
-        ctx.lineTo(offsetX + this.roomWidth * scale, offsetY + y * scale);
-        ctx.stroke();
-      }
-
-      // 2. Render Outer Room Walls (Thick Border)
-      ctx.strokeStyle = '#222222';
-      ctx.lineWidth = 8;
-      ctx.strokeRect(offsetX, offsetY, this.roomWidth * scale, this.roomHeight * scale);
-
-      // Dimension labels
-      ctx.fillStyle = '#64748B';
-      ctx.font = 'bold 12px DM Sans, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText(`${this.roomWidth} ft`, offsetX + (this.roomWidth * scale) / 2, offsetY - 14);
-      ctx.fillText(`${this.roomHeight} ft`, offsetX - 24, offsetY + (this.roomHeight * scale) / 2);
-
-      // 3. Render Placed Furniture
-      for (const item of this.placedItems) {
-        this.renderItemTopDown(ctx, item, scale, offsetX, offsetY);
-      }
-
-    } else {
-      // FRONT ELEVATION VIEW
-      // 1. Render Wall Surface
-      ctx.fillStyle = this.wallColor;
-      ctx.fillRect(offsetX, offsetY, this.roomWidth * scale, this.roomHeight * scale);
-
-      // Render Floor Line
-      ctx.fillStyle = this.floorColor;
-      ctx.fillRect(offsetX, offsetY + this.roomHeight * scale - 20, this.roomWidth * scale, 20);
-
-      // Wall outline
-      ctx.strokeStyle = '#334155';
-      ctx.lineWidth = 6;
-      ctx.strokeRect(offsetX, offsetY, this.roomWidth * scale, this.roomHeight * scale);
-
-      ctx.fillStyle = '#64748B';
-      ctx.font = 'bold 14px DM Sans, sans-serif';
-      ctx.textAlign = 'center';
-      ctx.fillText('Front Elevation View — Wall Perspective', offsetX + (this.roomWidth * scale) / 2, offsetY + 30);
-
-      // Render Placed Furniture in Front View
-      for (const item of this.placedItems) {
-        this.renderItemFrontView(ctx, item, scale, offsetX, offsetY);
-      }
-    }
+    }, 500);
   }
 
-  // Draw 2D Top Down Furniture shape
-  private renderItemTopDown(
-    ctx: CanvasRenderingContext2D,
-    item: PlacedFurniture,
-    scale: number,
-    offX: number,
-    offY: number
-  ) {
-    const itemW = item.width * scale;
-    const itemH = item.height * scale;
-    const itemX = offX + item.x * scale;
-    const itemY = offY + item.y * scale;
-
-    ctx.save();
-    // Rotate around item center
-    ctx.translate(itemX + itemW / 2, itemY + itemH / 2);
-    ctx.rotate((item.rotation * Math.PI) / 180);
-
-    const isSelected = this.selectedFurniture?.instanceId === item.instanceId;
-
-    // Draw furniture body
-    ctx.fillStyle = item.color || '#4A5568';
-    ctx.beginPath();
-    ctx.roundRect(-itemW / 2, -itemH / 2, itemW, itemH, 6);
-    ctx.fill();
-
-    // Inner detail outline
-    ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    // Text label
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 10px Inter, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(item.name.split(' ')[0], 0, 0);
-
-    // Selection highlight handles
-    if (isSelected) {
-      ctx.strokeStyle = '#38BDF8';
-      ctx.lineWidth = 3;
-      ctx.strokeRect(-itemW / 2 - 4, -itemH / 2 - 4, itemW + 8, itemH + 8);
-
-      // Rotation indicator circle
-      ctx.fillStyle = '#FF5A5F';
-      ctx.beginPath();
-      ctx.arc(0, -itemH / 2 - 14, 6, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    ctx.restore();
-  }
-
-  // Draw Front View Elevation
-  private renderItemFrontView(
-    ctx: CanvasRenderingContext2D,
-    item: PlacedFurniture,
-    scale: number,
-    offX: number,
-    offY: number
-  ) {
-    const itemW = item.width * scale;
-    const itemH = item.height * scale;
-    const itemX = offX + item.x * scale;
-    const floorY = offY + this.roomHeight * scale - 20;
-    const itemY = floorY - itemH;
-
-    ctx.save();
-    ctx.fillStyle = item.color || '#3B82F6';
-    ctx.fillRect(itemX, itemY, itemW, itemH);
-
-    ctx.strokeStyle = '#FFFFFF';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(itemX, itemY, itemW, itemH);
-
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = '10px Inter, sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(item.name, itemX + itemW / 2, itemY + itemH / 2);
-    ctx.restore();
-  }
-
-  /* --------------------------------------------------------------------------
-     MOUSE INTERACTION HANDLERS
-     -------------------------------------------------------------------------- */
-  onCanvasMouseDown(e: MouseEvent) {
-    const rect = this.canvasRef.nativeElement.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const clickY = e.clientY - rect.top;
-    const scale = 25;
-    const offX = 50;
-    const offY = 50;
-
-    // Check hit test for furniture
-    for (let i = this.placedItems.length - 1; i >= 0; i--) {
-      const item = this.placedItems[i];
-      const itemX = offX + item.x * scale;
-      const itemY = offY + item.y * scale;
-      const itemW = item.width * scale;
-      const itemH = item.height * scale;
-
-      if (clickX >= itemX && clickX <= itemX + itemW && clickY >= itemY && clickY <= itemY + itemH) {
-        this.selectedFurniture = item;
-        this.isDragging = true;
-        this.dragOffsetX = clickX - itemX;
-        this.dragOffsetY = clickY - itemY;
-        this.renderCanvas();
-        return;
-      }
-    }
-
-    this.selectedFurniture = null;
-    this.renderCanvas();
-  }
-
-  onCanvasMouseMove(e: MouseEvent) {
-    if (!this.isDragging || !this.selectedFurniture) return;
-
-    const rect = this.canvasRef.nativeElement.getBoundingClientRect();
-    const moveX = e.clientX - rect.left;
-    const moveY = e.clientY - rect.top;
-    const scale = 25;
-    const offX = 50;
-    const offY = 50;
-
-    let newX = (moveX - this.dragOffsetX - offX) / scale;
-    let newY = (moveY - this.dragOffsetY - offY) / scale;
-
-    if (this.snapToGrid) {
-      newX = Math.round(newX);
-      newY = Math.round(newY);
-    }
-
-    // Keep inside bounds
-    newX = Math.max(0, Math.min(newX, this.roomWidth - this.selectedFurniture.width));
-    newY = Math.max(0, Math.min(newY, this.roomHeight - this.selectedFurniture.height));
-
-    this.selectedFurniture.x = newX;
-    this.selectedFurniture.y = newY;
-    this.renderCanvas();
-  }
-
-  onCanvasMouseUp() {
-    if (this.isDragging) {
-      this.isDragging = false;
-      this.recordHistory();
-    }
-  }
-
-  @HostListener('window:keydown', ['$event'])
-  handleKeyboardEvent(event: KeyboardEvent) {
-    if (event.key === 'Delete' || event.key === 'Backspace') {
-      this.deleteSelected();
-    } else if (event.key === 'r' || event.key === 'R') {
-      this.rotateSelected(90);
-    } else if (event.ctrlKey && event.key === 'z') {
-      this.undo();
-    }
+  getCategoryIcon(cat: string): string {
+    const map: Record<string, string> = {
+      'Living Room': 'fa-solid fa-couch',
+      'Bedroom': 'fa-solid fa-bed',
+      'Kitchen': 'fa-solid fa-utensils',
+      'Bathroom': 'fa-solid fa-bath',
+      'Office': 'fa-solid fa-briefcase',
+      'Decor': 'fa-solid fa-palette'
+    };
+    return map[cat] || 'fa-solid fa-cube';
   }
 }
