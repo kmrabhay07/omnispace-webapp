@@ -10,6 +10,7 @@ import { environment } from '../../../environments/environment';
 export class PropertyService {
   private http = inject(HttpClient);
   private apiUrl = `${environment.apiUrl}/properties`;
+  private localKey = 'omnispace_user_properties';
 
   private mockProperties: Property[] = [
     {
@@ -126,21 +127,43 @@ export class PropertyService {
     }
   ];
 
-  private propertiesSignal = signal<Property[]>(this.mockProperties);
+  private propertiesSignal = signal<Property[]>(this.getInitialCombinedList());
+
+  private getInitialCombinedList(): Property[] {
+    try {
+      const local = localStorage.getItem(this.localKey);
+      const userProps: Property[] = local ? JSON.parse(local) : [];
+      const userIds = new Set(userProps.map(p => p.id));
+      const remainingMock = this.mockProperties.filter(p => !userIds.has(p.id));
+      return [...userProps, ...remainingMock];
+    } catch {
+      return this.mockProperties;
+    }
+  }
+
+  private persistUserProperties(prop: Property) {
+    try {
+      const local = localStorage.getItem(this.localKey);
+      const userProps: Property[] = local ? JSON.parse(local) : [];
+      const filtered = userProps.filter(p => p.id !== prop.id);
+      localStorage.setItem(this.localKey, JSON.stringify([prop, ...filtered]));
+    } catch (e) {
+      console.warn('Could not persist to localStorage:', e);
+    }
+  }
 
   getProperties(): Observable<Property[]> {
     return this.http.get<Property[]>(this.apiUrl).pipe(
       tap(serverProps => {
         if (serverProps && serverProps.length > 0) {
-          // Merge server properties with mock properties avoiding duplicate IDs
           const serverIds = new Set(serverProps.map(p => p.id));
-          const filteredMock = this.mockProperties.filter(p => !serverIds.has(p.id));
-          this.propertiesSignal.set([...serverProps, ...filteredMock]);
+          const localList = this.getInitialCombinedList().filter(p => !serverIds.has(p.id));
+          this.propertiesSignal.set([...serverProps, ...localList]);
         }
       }),
       map(() => this.propertiesSignal()),
       catchError(err => {
-        console.warn('Backend API offline or unreachable, using local data store:', err);
+        console.warn('Backend API offline, using local store:', err);
         return of(this.propertiesSignal());
       })
     );
@@ -158,19 +181,20 @@ export class PropertyService {
   addProperty(property: Omit<Property, 'id' | 'createdAt'>): Observable<Property> {
     return this.http.post<Property>(this.apiUrl, property).pipe(
       tap(createdProp => {
-        // Successfully saved in MongoDB Atlas!
+        this.persistUserProperties(createdProp);
         const current = this.propertiesSignal();
-        this.propertiesSignal.set([createdProp, ...current]);
+        this.propertiesSignal.set([createdProp, ...current.filter(p => p.id !== createdProp.id)]);
       }),
       catchError(err => {
-        console.warn('Backend POST failed, storing locally:', err);
+        console.warn('Backend POST failed or sleeping, storing locally:', err);
         const fallbackProp: Property = {
           ...property,
           id: 'prop-' + Date.now(),
           createdAt: new Date().toISOString()
         };
+        this.persistUserProperties(fallbackProp);
         const current = this.propertiesSignal();
-        this.propertiesSignal.set([fallbackProp, ...current]);
+        this.propertiesSignal.set([fallbackProp, ...current.filter(p => p.id !== fallbackProp.id)]);
         return of(fallbackProp);
       })
     );

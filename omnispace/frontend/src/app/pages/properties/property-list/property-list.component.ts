@@ -64,9 +64,9 @@ import { PropertyCardComponent } from '../../../shared/components/property-card/
           <div class="filter-group">
             <div class="label-row">
               <label>Max Price</label>
-              <span class="value-badge">\${{ maxPrice | number }}</span>
+              <span class="value-badge">{{ maxPrice >= 100000000 ? 'Any Price' : (maxPrice | number) }}</span>
             </div>
-            <input type="range" min="200000" max="5000000" step="100000" [(ngModel)]="maxPrice" (input)="applyFilters()">
+            <input type="range" min="500000" max="100000000" step="500000" [(ngModel)]="maxPrice" (input)="applyFilters()">
           </div>
 
           <!-- Bedrooms -->
@@ -305,7 +305,7 @@ export class PropertyListComponent implements OnInit {
   selectedType = '';
   selectedCategory = '';
   searchLocation = '';
-  maxPrice = 5000000;
+  maxPrice = 100000000;
   minBedrooms = 0;
   sortBy = 'newest';
 
@@ -343,7 +343,7 @@ export class PropertyListComponent implements OnInit {
         p.description.toLowerCase().includes(kw)
       );
     }
-    if (this.maxPrice) {
+    if (this.maxPrice < 100000000) {
       result = result.filter(p => p.price <= this.maxPrice);
     }
     if (this.minBedrooms > 0) {
@@ -366,7 +366,7 @@ export class PropertyListComponent implements OnInit {
     this.selectedType = '';
     this.selectedCategory = '';
     this.searchLocation = '';
-    this.maxPrice = 5000000;
+    this.maxPrice = 100000000;
     this.minBedrooms = 0;
     this.sortBy = 'newest';
     this.applyFilters();
