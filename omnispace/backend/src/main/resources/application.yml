@@ -1,19 +1,20 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
 
 spring:
   application:
     name: omnispace-backend
   data:
     mongodb:
-      uri: ${MONGO_DB_URI:${MONGODB_URI:mongodb://localhost:27017/omnispace}}
+      uri: ${SPRING_DATA_MONGODB_URI:${MONGODB_URI:${MONGO_DB_URI:${MONGO_URI:mongodb://localhost:27017/omnispace}}}}
 
 app:
   jwt:
-    secret: 404E635266556A586E3272357538782F413F4428472B4B6250655368566D5970
+    secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250655368566D5970}
     expiration-ms: 86400000
 
 logging:
   level:
     root: INFO
     com.omnispace: DEBUG
+    org.springframework.data.mongodb: DEBUG
