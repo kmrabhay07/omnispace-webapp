@@ -39,7 +39,7 @@ public class Property {
     private Double latitude;
     private Double longitude;
     private Integer bedrooms;
-    private Integer bathrooms;
+    private Double bathrooms;
     private Double areaSqFt;
     private String furnishingStatus; // Furnished, Semi-Furnished, Unfurnished
     private List<String> amenities = new ArrayList<>();

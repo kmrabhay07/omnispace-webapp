@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, AfterViewInit } from '@angular/core';
+import { Component, inject, OnInit, AfterViewInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -337,6 +337,7 @@ export class PropertyFormComponent implements OnInit, AfterViewInit {
   propertyService = inject(PropertyService);
   authService = inject(AuthService);
   router = inject(Router);
+  cdr = inject(ChangeDetectorRef);
 
   currentUser: User | null = null;
   ownerName = '';
@@ -485,11 +486,13 @@ export class PropertyFormComponent implements OnInit, AfterViewInit {
     this.propertyService.addProperty(newProp).subscribe({
       next: (res) => {
         this.isSubmitting = false;
+        this.cdr.markForCheck();
         alert(`🎉 Property "${res.title}" published successfully to MongoDB!`);
         this.router.navigate(['/properties', res.id]);
       },
       error: (err) => {
         this.isSubmitting = false;
+        this.cdr.markForCheck();
         console.error('Error publishing property to backend:', err);
         alert('Could not publish listing. Please check your network or inputs and try again.');
       }
