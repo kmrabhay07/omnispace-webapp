@@ -54,7 +54,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/properties/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/furniture/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/designs/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/messages/**").permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/messages", "/api/messages/**").permitAll()
                 .anyRequest().authenticated()
             );
 

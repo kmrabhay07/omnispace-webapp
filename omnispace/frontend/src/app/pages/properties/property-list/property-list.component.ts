@@ -300,8 +300,8 @@ export class PropertyListComponent implements OnInit {
   route = inject(ActivatedRoute);
   cdr = inject(ChangeDetectorRef);
 
-  allProperties: Property[] = this.propertyService.getInitialCombinedList();
-  filteredProperties: Property[] = [...this.allProperties];
+  allProperties: Property[] = [];
+  filteredProperties: Property[] = [];
 
   selectedType = '';
   selectedCategory = '';
@@ -311,8 +311,6 @@ export class PropertyListComponent implements OnInit {
   sortBy = 'newest';
 
   ngOnInit() {
-    this.applyFilters();
-
     this.route.queryParams.subscribe(params => {
       if (params['type']) this.selectedType = params['type'];
       if (params['category']) this.selectedCategory = params['category'];
@@ -324,9 +322,7 @@ export class PropertyListComponent implements OnInit {
 
   fetchProperties() {
     this.propertyService.getProperties().subscribe(props => {
-      if (props && props.length > 0) {
-        this.allProperties = props;
-      }
+      this.allProperties = props || [];
       this.applyFilters();
       this.cdr.markForCheck();
     });

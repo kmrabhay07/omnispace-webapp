@@ -24,6 +24,26 @@ export class ChatService {
   private apiUrl = `${environment.apiUrl}/messages`;
   private localKeyPrefix = 'omnispace_chat_';
 
+  getAllUserMessages(userId?: string): Observable<ChatMessage[]> {
+    const url = userId ? `${this.apiUrl}?userId=${userId}` : this.apiUrl;
+    return this.http.get<ChatMessage[]>(url).pipe(
+      catchError(err => {
+        console.warn('Backend messages API unreachable, aggregating local chats:', err);
+        const all: ChatMessage[] = [];
+        try {
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith(this.localKeyPrefix)) {
+              const items = JSON.parse(localStorage.getItem(key) || '[]');
+              all.push(...items);
+            }
+          }
+        } catch {}
+        return of(all);
+      })
+    );
+  }
+
   getMessages(propertyId: string): Observable<ChatMessage[]> {
     return this.http.get<ChatMessage[]>(`${this.apiUrl}/${propertyId}`).pipe(
       catchError(err => {

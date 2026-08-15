@@ -18,6 +18,7 @@ import { AuthService } from '../../../core/services/auth.service';
         <nav class="nav-links">
           <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">Home</a>
           <a routerLink="/properties" routerLinkActive="active">Browse Properties</a>
+          <a routerLink="/chats" routerLinkActive="active"><i class="fa-regular fa-comment-dots"></i> My Chats</a>
           <a routerLink="/designer" routerLinkActive="active" class="highlight-link">
             <i class="fa-solid fa-wand-magic-sparkles"></i> 3D Studio
           </a>
@@ -60,6 +61,10 @@ import { AuthService } from '../../../core/services/auth.service';
                 <div class="menu-divider"></div>
 
                 <div class="menu-links-group">
+                  <a routerLink="/chats" (click)="closeDropdown()" class="menu-item">
+                    <i class="fa-solid fa-comments"></i>
+                    <span>My Chats & Inquiries</span>
+                  </a>
                   <a routerLink="/properties/new" (click)="closeDropdown()" class="menu-item">
                     <i class="fa-solid fa-plus-circle"></i>
                     <span>List a Property</span>

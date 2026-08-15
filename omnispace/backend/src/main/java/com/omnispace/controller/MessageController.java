@@ -17,6 +17,14 @@ public class MessageController {
     @Autowired
     private MessageRepository messageRepository;
 
+    @GetMapping
+    public ResponseEntity<List<Message>> getAllMessages(@RequestParam(required = false) String userId) {
+        if (userId != null && !userId.trim().isEmpty()) {
+            return ResponseEntity.ok(messageRepository.findBySenderIdOrReceiverIdOrderByTimestampDesc(userId, userId));
+        }
+        return ResponseEntity.ok(messageRepository.findAllByOrderByTimestampDesc());
+    }
+
     @GetMapping("/{propertyId}")
     public ResponseEntity<List<Message>> getMessagesForProperty(@PathVariable String propertyId) {
         List<Message> messages = messageRepository.findByPropertyIdOrderByTimestampAsc(propertyId);

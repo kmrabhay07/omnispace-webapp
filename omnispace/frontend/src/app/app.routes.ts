@@ -6,6 +6,7 @@ import { PropertyFormComponent } from './pages/properties/property-form/property
 import { DesignerComponent } from './pages/designer/designer.component';
 import { LoginComponent } from './pages/auth/login/login.component';
 import { RegisterComponent } from './pages/auth/register/register.component';
+import { ChatsComponent } from './pages/chats/chats.component';
 import { authGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
@@ -14,6 +15,7 @@ export const routes: Routes = [
   { path: 'properties/new', component: PropertyFormComponent, canActivate: [authGuard] },
   { path: 'properties/:id', component: PropertyDetailComponent },
   { path: 'designer', component: DesignerComponent },
+  { path: 'chats', component: ChatsComponent },
   { path: 'login', component: LoginComponent },
   { path: 'register', component: RegisterComponent },
   { path: '**', redirectTo: '' }
