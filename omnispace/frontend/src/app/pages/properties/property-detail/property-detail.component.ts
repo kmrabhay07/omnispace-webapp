@@ -1,9 +1,10 @@
-import { Component, inject, OnInit, AfterViewInit, ViewChild, ElementRef } from '@angular/core';
+import { Component, inject, OnInit, AfterViewInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { PropertyService } from '../../../core/services/property.service';
 import { AuthService } from '../../../core/services/auth.service';
+import { ChatService, ChatMessage as ApiChatMessage } from '../../../core/services/chat.service';
 import { Property } from '../../../core/models/property.model';
 
 declare var L: any;
@@ -928,17 +929,19 @@ interface ChatMessage {
     }
   `]
 })
-export class PropertyDetailComponent implements OnInit, AfterViewInit {
+export class PropertyDetailComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('messagesContainer') private messagesContainer!: ElementRef<HTMLDivElement>;
   @ViewChild('chatInputField') private chatInputField!: ElementRef<HTMLInputElement>;
 
   route = inject(ActivatedRoute);
   propertyService = inject(PropertyService);
   authService = inject(AuthService);
+  chatService = inject(ChatService);
 
   property: Property | undefined;
   activeImage = '';
   private mapInstance: any;
+  private chatPollTimer: any;
 
   // OLX CHAT SYSTEM
   isChatOpen = false;
@@ -964,6 +967,19 @@ export class PropertyDetailComponent implements OnInit, AfterViewInit {
           this.loadChatHistory(prop.id);
         }
       });
+    }
+
+    // Polling for live chat updates every 5 seconds
+    this.chatPollTimer = setInterval(() => {
+      if (this.isChatOpen && this.property) {
+        this.refreshChat(this.property.id);
+      }
+    }, 5000);
+  }
+
+  ngOnDestroy() {
+    if (this.chatPollTimer) {
+      clearInterval(this.chatPollTimer);
     }
   }
 
@@ -991,19 +1007,11 @@ export class PropertyDetailComponent implements OnInit, AfterViewInit {
     marker.bindPopup(`<strong>${this.property?.title || 'Property Location'}</strong><br>${this.property?.location || ''}`).openPopup();
   }
 
-  // OLX CHAT SYSTEM METHODS
+  // OLX CHAT SYSTEM METHODS (MongoDB-Backed Live Chat)
   openChatModal() {
     this.isChatOpen = true;
-    if (this.chatMessages.length === 0 && this.property) {
-      // Initial greeting message from the verified owner
-      this.chatMessages.push({
-        id: 'msg-welcome',
-        sender: 'OWNER',
-        senderName: this.property.ownerName || 'Verified Host',
-        text: `Hello! Thanks for your interest in "${this.property.title}". How can I help you today? Feel free to ask about pricing, layout, or scheduling a visit.`,
-        timestamp: this.getCurrentTimeString()
-      });
-      this.saveChatHistory();
+    if (this.property) {
+      this.loadChatHistory(this.property.id);
     }
     setTimeout(() => {
       this.scrollToBottom();
@@ -1023,42 +1031,65 @@ export class PropertyDetailComponent implements OnInit, AfterViewInit {
   sendMessage() {
     if (!this.newMessageText.trim() || !this.property) return;
 
-    const buyerName = this.authService.currentUser()?.name || 'Buyer';
+    const currentUser = this.authService.currentUser();
+    const buyerName = currentUser?.name || 'Buyer';
     const text = this.newMessageText.trim();
     this.newMessageText = '';
 
-    // Add Buyer Message
-    this.chatMessages.push({
+    const buyerMsg: ChatMessage = {
       id: 'msg-' + Date.now(),
       sender: 'BUYER',
       senderName: buyerName,
       text: text,
       timestamp: this.getCurrentTimeString()
-    });
+    };
 
-    this.saveChatHistory();
+    this.chatMessages.push(buyerMsg);
     this.scrollToBottom();
+
+    // Persist Buyer Message to MongoDB
+    this.chatService.sendMessage({
+      propertyId: this.property.id,
+      senderId: currentUser?.id || 'guest',
+      senderName: buyerName,
+      senderEmail: currentUser?.email || '',
+      receiverId: this.property.ownerId || 'owner',
+      receiverName: this.property.ownerName || 'Verified Host',
+      content: text,
+      isOwner: false
+    }).subscribe();
 
     // Trigger Smart Owner Reply with realistic delay
     this.isOwnerTyping = true;
     setTimeout(() => {
       this.isOwnerTyping = false;
       const ownerReply = this.generateSmartOwnerReply(text);
-      this.chatMessages.push({
+      const ownerMsg: ChatMessage = {
         id: 'msg-' + Date.now(),
         sender: 'OWNER',
         senderName: this.property?.ownerName || 'Verified Host',
         text: ownerReply,
         timestamp: this.getCurrentTimeString()
-      });
-      this.saveChatHistory();
+      };
+
+      this.chatMessages.push(ownerMsg);
       this.scrollToBottom();
+
+      // Persist Owner Response to MongoDB
+      if (this.property) {
+        this.chatService.sendMessage({
+          propertyId: this.property.id,
+          senderId: this.property.ownerId || 'owner',
+          senderName: this.property.ownerName || 'Verified Host',
+          content: ownerReply,
+          isOwner: true
+        }).subscribe();
+      }
     }, 1200);
   }
 
   private generateSmartOwnerReply(buyerText: string): string {
     const lower = buyerText.toLowerCase();
-    const ownerName = this.property?.ownerName || 'Host';
 
     if (lower.includes('available') || lower.includes('still')) {
       return `Yes, absolutely! The property is available and ready for viewing. Would you like to schedule an in-person visit or virtual 3D tour?`;
@@ -1076,23 +1107,44 @@ export class PropertyDetailComponent implements OnInit, AfterViewInit {
   }
 
   private loadChatHistory(propId: string) {
-    try {
-      const stored = localStorage.getItem(`omni_chat_${propId}`);
-      if (stored) {
-        this.chatMessages = JSON.parse(stored);
+    this.chatService.getMessages(propId).subscribe(apiMsgs => {
+      if (apiMsgs && apiMsgs.length > 0) {
+        this.chatMessages = apiMsgs.map(m => ({
+          id: m.id || 'msg-' + Math.random(),
+          sender: m.isOwner ? 'OWNER' : 'BUYER',
+          senderName: m.senderName || (m.isOwner ? 'Verified Host' : 'Buyer'),
+          text: m.content,
+          timestamp: m.timestamp ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : this.getCurrentTimeString()
+        }));
+      } else {
+        // Welcome message if conversation is new
+        if (this.chatMessages.length === 0 && this.property) {
+          this.chatMessages = [{
+            id: 'msg-welcome',
+            sender: 'OWNER',
+            senderName: this.property.ownerName || 'Verified Host',
+            text: `Hello! Thanks for your interest in "${this.property.title}". How can I help you today? Feel free to ask about pricing, layout, or scheduling a visit.`,
+            timestamp: this.getCurrentTimeString()
+          }];
+        }
       }
-    } catch {
-      this.chatMessages = [];
-    }
+      this.scrollToBottom();
+    });
   }
 
-  private saveChatHistory() {
-    if (!this.property) return;
-    try {
-      localStorage.setItem(`omni_chat_${this.property.id}`, JSON.stringify(this.chatMessages));
-    } catch (e) {
-      console.warn('Could not save chat history:', e);
-    }
+  private refreshChat(propId: string) {
+    this.chatService.getMessages(propId).subscribe(apiMsgs => {
+      if (apiMsgs && apiMsgs.length > this.chatMessages.length) {
+        this.chatMessages = apiMsgs.map(m => ({
+          id: m.id || 'msg-' + Math.random(),
+          sender: m.isOwner ? 'OWNER' : 'BUYER',
+          senderName: m.senderName || (m.isOwner ? 'Verified Host' : 'Buyer'),
+          text: m.content,
+          timestamp: m.timestamp ? new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : this.getCurrentTimeString()
+        }));
+        this.scrollToBottom();
+      }
+    });
   }
 
   private scrollToBottom() {

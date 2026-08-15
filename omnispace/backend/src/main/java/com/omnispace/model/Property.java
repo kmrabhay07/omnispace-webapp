@@ -1,5 +1,8 @@
 package com.omnispace.model;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -18,13 +21,19 @@ public class Property {
     @Id
     private String id;
     
+    @NotBlank(message = "Title is required")
     private String title;
     private String description;
     private String propertyType; // RESIDENTIAL, COMMERCIAL
     private String category; // Apartment, Villa, Office, Retail, Studio, Penthouse
+    
+    @NotNull(message = "Price is required")
+    @Positive(message = "Price must be positive")
     private Double price;
     private String currency; // INR, USD, EUR, GBP, AED
     private String currencySymbol; // ₹, $, €, £, د.إ
+    
+    @NotBlank(message = "Location is required")
     private String location;
     private String address;
     private Double latitude;

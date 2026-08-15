@@ -54,7 +54,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/properties/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/furniture/**").permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/designs/**").permitAll()
-                .anyRequest().permitAll() // Allow open access for demo purposes, authenticated paths handle claims
+                .requestMatchers(HttpMethod.GET, "/api/messages/**").permitAll()
+                .anyRequest().authenticated()
             );
 
         http.authenticationProvider(authenticationProvider);

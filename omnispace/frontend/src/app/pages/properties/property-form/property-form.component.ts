@@ -107,43 +107,7 @@ declare var L: any; // Leaflet declaration for OpenStreetMap
               </div>
             </div>
 
-            <!-- Image Upload & Gallery Section -->
-            <div class="form-group image-upload-section">
-              <label><i class="fa-solid fa-images"></i> Property Photos (Upload or Drop Images)</label>
-              
-              <!-- Drag and Drop Zone -->
-              <div class="upload-dropzone" (click)="fileInput.click()" (dragover)="onDragOver($event)" (drop)="onDropFile($event)">
-                <input #fileInput type="file" (change)="onFileSelected($event)" multiple accept="image/*" style="display: none;">
-                <div class="upload-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
-                <h4>Drag & drop images here or <span>browse files</span></h4>
-                <p>Supports PNG, JPG, JPEG, WebP. High resolution photos recommend for 3D visual staging.</p>
-              </div>
 
-              <!-- Uploaded Images Preview Gallery -->
-              <div class="uploaded-gallery-grid" *ngIf="uploadedImages.length > 0">
-                <div class="image-thumb-card" *ngFor="let img of uploadedImages; let i = index" [class.is-featured]="img === featuredImage">
-                  <img [src]="img" alt="Uploaded photo">
-                  <div class="thumb-overlay">
-                    <button type="button" class="btn-badge" (click)="setAsFeatured(img)" [title]="img === featuredImage ? 'Featured Photo' : 'Set as Featured'">
-                      <i [class]="img === featuredImage ? 'fa-solid fa-star text-warning' : 'fa-regular fa-star'"></i>
-                      {{ img === featuredImage ? 'Featured' : 'Make Featured' }}
-                    </button>
-                    <button type="button" class="btn-delete" (click)="removeImage(i)" title="Remove Photo">
-                      <i class="fa-solid fa-trash"></i>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Direct URL Fallback -->
-              <div class="url-input-toggle">
-                <small>Or paste an image URL directly:</small>
-                <div class="input-with-button">
-                  <input type="url" [(ngModel)]="customImageUrl" name="customImageUrl" placeholder="https://images.unsplash.com/...">
-                  <button type="button" class="btn btn-outline btn-sm" (click)="addCustomImageUrl()">Add URL</button>
-                </div>
-              </div>
-            </div>
 
             <!-- Location & Free Maps -->
             <div class="form-row">
@@ -292,128 +256,6 @@ declare var L: any; // Leaflet declaration for OpenStreetMap
       .flex-1 { flex: 1; }
       .flex-2 { flex: 2; }
 
-      /* Upload Dropzone */
-      .upload-dropzone {
-        border: 2px dashed #cbd5e1;
-        background: #f8fafc;
-        border-radius: var(--radius-md);
-        padding: 30px 20px;
-        text-align: center;
-        cursor: pointer;
-        transition: all 0.2s ease;
-
-        &:hover {
-          border-color: var(--primary);
-          background: #f1f5f9;
-        }
-
-        .upload-icon {
-          font-size: 2.2rem;
-          color: var(--primary);
-          margin-bottom: 10px;
-        }
-
-        h4 {
-          font-size: 1rem;
-          margin-bottom: 4px;
-          span { color: var(--primary); text-decoration: underline; }
-        }
-
-        p {
-          font-size: 0.82rem;
-          color: var(--gray-muted);
-          margin: 0;
-        }
-      }
-
-      .uploaded-gallery-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 12px;
-        margin-top: 14px;
-
-        .image-thumb-card {
-          position: relative;
-          height: 100px;
-          border-radius: var(--radius-sm);
-          overflow: hidden;
-          border: 2px solid transparent;
-
-          &.is-featured {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 2px rgba(255, 90, 95, 0.3);
-          }
-
-          img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-          }
-
-          .thumb-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.45);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 6px;
-            opacity: 0;
-            transition: opacity 0.2s ease;
-          }
-
-          &:hover .thumb-overlay, &.is-featured .thumb-overlay {
-            opacity: 1;
-          }
-
-          .btn-badge {
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            font-size: 0.7rem;
-            padding: 3px 6px;
-            border-radius: 4px;
-            cursor: pointer;
-
-            .text-warning { color: #f59e0b; }
-
-            &:hover {
-              background: var(--primary);
-            }
-          }
-
-          .btn-delete {
-            background: #ef4444;
-            color: white;
-            border: none;
-            width: 26px;
-            height: 26px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.75rem;
-            cursor: pointer;
-          }
-        }
-      }
-
-      .url-input-toggle {
-        margin-top: 12px;
-
-        small { color: var(--gray-muted); display: block; margin-bottom: 4px; }
-
-        .input-with-button {
-          display: flex;
-          gap: 8px;
-
-          input { flex: 1; }
-        }
-      }
-
       /* Map Picker Styling */
       .map-group {
         margin-top: 8px;
@@ -516,13 +358,7 @@ export class PropertyFormComponent implements OnInit, AfterViewInit {
   areaSqFt = 2100;
   description = '';
   
-  // Image Upload Support
-  uploadedImages: string[] = [
-    'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
-    'https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?auto=format&fit=crop&w=1200&q=80'
-  ];
-  featuredImage = 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80';
-  customImageUrl = '';
+
 
   // Free Map Location Coordinates (Leaflet OpenStreetMap)
   latitude = 12.9716;
@@ -564,64 +400,7 @@ export class PropertyFormComponent implements OnInit, AfterViewInit {
     }
   }
 
-  // Image Upload Handlers
-  onFileSelected(event: any) {
-    const files: FileList = event.target.files;
-    if (files) {
-      this.handleImageFiles(files);
-    }
-  }
 
-  onDragOver(event: DragEvent) {
-    event.preventDefault();
-    event.stopPropagation();
-  }
-
-  onDropFile(event: DragEvent) {
-    event.preventDefault();
-    event.stopPropagation();
-    if (event.dataTransfer?.files) {
-      this.handleImageFiles(event.dataTransfer.files);
-    }
-  }
-
-  private handleImageFiles(files: FileList) {
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      if (file.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = (e: any) => {
-          const base64 = e.target.result;
-          this.uploadedImages.push(base64);
-          if (!this.featuredImage) {
-            this.featuredImage = base64;
-          }
-        };
-        reader.readAsDataURL(file);
-      }
-    }
-  }
-
-  addCustomImageUrl() {
-    if (this.customImageUrl && this.customImageUrl.startsWith('http')) {
-      this.uploadedImages.push(this.customImageUrl);
-      if (!this.featuredImage) {
-        this.featuredImage = this.customImageUrl;
-      }
-      this.customImageUrl = '';
-    }
-  }
-
-  setAsFeatured(img: string) {
-    this.featuredImage = img;
-  }
-
-  removeImage(index: number) {
-    const removed = this.uploadedImages.splice(index, 1)[0];
-    if (this.featuredImage === removed) {
-      this.featuredImage = this.uploadedImages[0] || '';
-    }
-  }
 
   // Leaflet Interactive Free Map Picker
   initMapPicker() {
@@ -670,7 +449,7 @@ export class PropertyFormComponent implements OnInit, AfterViewInit {
       return;
     }
 
-    const finalFeatured = this.featuredImage || (this.uploadedImages.length > 0 ? this.uploadedImages[0] : 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80');
+    const defaultImage = 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80';
 
     const contactStr = this.ownerPhone ? `${this.ownerPhone} • ${this.ownerEmail}` : this.ownerEmail;
 
@@ -689,8 +468,8 @@ export class PropertyFormComponent implements OnInit, AfterViewInit {
       bedrooms: this.bedrooms,
       bathrooms: this.bathrooms,
       areaSqFt: this.areaSqFt,
-      featuredImage: finalFeatured,
-      images: this.uploadedImages.length > 0 ? this.uploadedImages : [finalFeatured],
+      featuredImage: defaultImage,
+      images: [defaultImage],
       description: this.description,
       amenities: ['Smart Access', 'High Ceilings', 'Parking', '24/7 Security'],
       ownerId: this.currentUser?.id || 'u-1',
