@@ -487,7 +487,7 @@ export class PropertyFormComponent implements OnInit, AfterViewInit {
       next: (res) => {
         this.isSubmitting = false;
         this.cdr.markForCheck();
-        alert(`🎉 Property "${res.title}" published successfully to MongoDB!`);
+        alert(`🎉 Property added successfully!`);
         this.router.navigate(['/properties', res.id]);
       },
       error: (err) => {
