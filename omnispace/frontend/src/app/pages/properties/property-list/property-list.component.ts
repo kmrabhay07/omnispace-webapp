@@ -330,24 +330,24 @@ export class PropertyListComponent implements OnInit {
     let result = [...this.allProperties];
 
     if (this.selectedType) {
-      result = result.filter(p => p.propertyType === this.selectedType);
+      result = result.filter(p => p.propertyType?.toUpperCase() === this.selectedType.toUpperCase());
     }
     if (this.selectedCategory) {
-      result = result.filter(p => p.category === this.selectedCategory);
+      result = result.filter(p => p.category?.toLowerCase() === this.selectedCategory.toLowerCase());
     }
-    if (this.searchLocation) {
-      const kw = this.searchLocation.toLowerCase();
+    if (this.searchLocation && this.searchLocation.trim()) {
+      const kw = this.searchLocation.trim().toLowerCase();
       result = result.filter(p =>
-        p.title.toLowerCase().includes(kw) ||
-        p.location.toLowerCase().includes(kw) ||
-        p.description.toLowerCase().includes(kw)
+        (p.title && p.title.toLowerCase().includes(kw)) ||
+        (p.location && p.location.toLowerCase().includes(kw)) ||
+        (p.description && p.description.toLowerCase().includes(kw))
       );
     }
     if (this.maxPrice < 100000000) {
-      result = result.filter(p => p.price <= this.maxPrice);
+      result = result.filter(p => p.price == null || p.price <= this.maxPrice);
     }
     if (this.minBedrooms > 0) {
-      result = result.filter(p => p.bedrooms >= this.minBedrooms);
+      result = result.filter(p => p.bedrooms != null && p.bedrooms >= this.minBedrooms);
     }
 
     // Sort

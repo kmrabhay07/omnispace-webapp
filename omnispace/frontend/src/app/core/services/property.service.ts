@@ -42,28 +42,57 @@ export class PropertyService {
 
   getProperties(): Observable<Property[]> {
     return this.http.get<Property[]>(this.apiUrl).pipe(
-      tap(serverProps => {
+      map(serverProps => {
         if (serverProps && serverProps.length > 0) {
           const serverIds = new Set(serverProps.map(p => p.id));
           const localList = this.getInitialCombinedList().filter(p => !serverIds.has(p.id));
-          this.propertiesSignal.set([...serverProps, ...localList]);
+          const combined = [...serverProps, ...localList];
+          this.propertiesSignal.set(combined);
+          return combined;
         }
+        const initial = this.getInitialCombinedList();
+        this.propertiesSignal.set(initial);
+        return initial;
       }),
-      map(() => this.propertiesSignal()),
       catchError(err => {
         console.warn('Backend API offline, using local store:', err);
-        return of(this.propertiesSignal());
+        const fallback = this.getInitialCombinedList();
+        this.propertiesSignal.set(fallback);
+        return of(fallback);
       })
     );
   }
 
   getPropertyById(id: string): Observable<Property | undefined> {
     return this.http.get<Property>(`${this.apiUrl}/${id}`).pipe(
-      catchError(() => {
-        const prop = this.propertiesSignal().find(p => p.id === id);
-        return of(prop);
+      map(res => {
+        if (res && (res.id || res.title)) {
+          return res;
+        }
+        return this.findPropertyInLocalOrMock(id);
+      }),
+      catchError(err => {
+        console.warn(`Property ${id} not found in backend, fallback to local/mock:`, err);
+        return of(this.findPropertyInLocalOrMock(id));
       })
     );
+  }
+
+  private findPropertyInLocalOrMock(id: string): Property | undefined {
+    // 1. Check current signal
+    const fromSignal = this.propertiesSignal().find(p => p.id === id);
+    if (fromSignal) return fromSignal;
+
+    // 2. Check localStorage
+    try {
+      const local = localStorage.getItem(this.localKey);
+      const userProps: Property[] = local ? JSON.parse(local) : [];
+      const fromLocal = userProps.find(p => p.id === id);
+      if (fromLocal) return fromLocal;
+    } catch {}
+
+    // 3. Check mock properties
+    return this.mockProperties.find(p => p.id === id);
   }
 
   addProperty(property: Omit<Property, 'id' | 'createdAt'>): Observable<Property> {

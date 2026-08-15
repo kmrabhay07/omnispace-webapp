@@ -249,9 +249,18 @@ interface ChatMessage {
     </div>
 
     <ng-template #loading>
-      <div class="container text-center py-5">
-        <p>Loading property details...</p>
+      <div class="container text-center py-5" *ngIf="isLoading; else notFound">
+        <div style="font-size: 2.5rem; color: var(--primary); margin-bottom: 16px;"><i class="fa-solid fa-circle-notch fa-spin"></i></div>
+        <p style="font-size: 1.1rem; color: var(--gray-muted);">Loading property details...</p>
       </div>
+      <ng-template #notFound>
+        <div class="container text-center py-5">
+          <div style="font-size: 3rem; color: #ef4444; margin-bottom: 16px;"><i class="fa-solid fa-triangle-exclamation"></i></div>
+          <h2 style="margin-bottom: 8px;">Property Not Found</h2>
+          <p style="color: var(--gray-muted); margin-bottom: 20px;">The requested listing could not be found or has been moved.</p>
+          <a routerLink="/properties" class="btn btn-primary"><i class="fa-solid fa-arrow-left"></i> Back to Browse Properties</a>
+        </div>
+      </ng-template>
     </ng-template>
   `,
   styles: [`
@@ -938,6 +947,7 @@ export class PropertyDetailComponent implements OnInit, AfterViewInit, OnDestroy
   authService = inject(AuthService);
   chatService = inject(ChatService);
 
+  isLoading = true;
   property: Property | undefined;
   activeImage = '';
   private mapInstance: any;
@@ -958,16 +968,23 @@ export class PropertyDetailComponent implements OnInit, AfterViewInit, OnDestroy
   chatMessages: ChatMessage[] = [];
 
   ngOnInit() {
-    const id = this.route.snapshot.paramMap.get('id');
-    if (id) {
-      this.propertyService.getPropertyById(id).subscribe(prop => {
-        this.property = prop;
-        if (prop) {
-          this.activeImage = prop.featuredImage;
-          this.loadChatHistory(prop.id);
-        }
-      });
-    }
+    this.route.paramMap.subscribe(params => {
+      const id = params.get('id');
+      if (id) {
+        this.isLoading = true;
+        this.propertyService.getPropertyById(id).subscribe(prop => {
+          this.isLoading = false;
+          this.property = prop;
+          if (prop) {
+            this.activeImage = prop.featuredImage;
+            this.loadChatHistory(prop.id);
+            setTimeout(() => this.initMap(), 300);
+          }
+        });
+      } else {
+        this.isLoading = false;
+      }
+    });
 
     // Polling for live chat updates every 5 seconds
     this.chatPollTimer = setInterval(() => {
