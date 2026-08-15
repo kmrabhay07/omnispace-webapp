@@ -51,11 +51,11 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/", "/api/auth/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/properties/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/furniture/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/designs/**").permitAll()
-                .requestMatchers(HttpMethod.GET, "/api/messages", "/api/messages/**").permitAll()
-                .anyRequest().authenticated()
+                .requestMatchers("/api/properties", "/api/properties/**").permitAll()
+                .requestMatchers("/api/furniture", "/api/furniture/**").permitAll()
+                .requestMatchers("/api/designs", "/api/designs/**").permitAll()
+                .requestMatchers("/api/messages", "/api/messages/**").permitAll()
+                .anyRequest().permitAll()
             );
 
         http.authenticationProvider(authenticationProvider);

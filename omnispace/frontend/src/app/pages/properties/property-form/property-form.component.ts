@@ -170,8 +170,10 @@ declare var L: any; // Leaflet declaration for OpenStreetMap
             <!-- Form Actions -->
             <div class="form-actions">
               <button type="button" routerLink="/properties" class="btn btn-outline">Cancel</button>
-              <button type="submit" class="btn btn-primary">
-                <i class="fa-solid fa-cloud-arrow-up"></i> Publish Listing
+              <button type="submit" [disabled]="isSubmitting" class="btn btn-primary">
+                <i *ngIf="isSubmitting" class="fa-solid fa-circle-notch fa-spin"></i>
+                <i *ngIf="!isSubmitting" class="fa-solid fa-cloud-arrow-up"></i>
+                {{ isSubmitting ? 'Publishing Listing...' : 'Publish Listing' }}
               </button>
             </div>
           </form>
@@ -443,43 +445,54 @@ export class PropertyFormComponent implements OnInit, AfterViewInit {
     }
   }
 
+  isSubmitting = false;
+
   onSubmit() {
-    if (!this.title || !this.location) {
-      alert('Please fill in property title and location!');
+    if (!this.title || !this.location || !this.price) {
+      alert('Please fill in property title, location and price!');
       return;
     }
 
-    const defaultImage = 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80';
+    this.isSubmitting = true;
 
+    const defaultImage = 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80';
     const contactStr = this.ownerPhone ? `${this.ownerPhone} • ${this.ownerEmail}` : this.ownerEmail;
 
     const newProp: Omit<Property, 'id' | 'createdAt'> = {
-      title: this.title,
+      title: this.title.trim(),
       propertyType: this.propertyType,
       category: this.category,
-      price: this.price,
+      price: Number(this.price),
       currency: this.currency,
       currencySymbol: this.currencySymbol,
       furnishingStatus: this.furnishingStatus,
-      location: this.location,
-      address: this.address,
+      location: this.location.trim(),
+      address: this.address ? this.address.trim() : '',
       latitude: this.latitude,
       longitude: this.longitude,
-      bedrooms: this.bedrooms,
-      bathrooms: this.bathrooms,
-      areaSqFt: this.areaSqFt,
+      bedrooms: Number(this.bedrooms) || 0,
+      bathrooms: Number(this.bathrooms) || 0,
+      areaSqFt: Number(this.areaSqFt) || 0,
       featuredImage: defaultImage,
       images: [defaultImage],
-      description: this.description,
+      description: this.description ? this.description.trim() : '',
       amenities: ['Smart Access', 'High Ceilings', 'Parking', '24/7 Security'],
-      ownerId: this.currentUser?.id || 'u-1',
+      ownerId: this.currentUser?.id || 'host-user',
       ownerName: this.ownerName || this.currentUser?.name || 'Property Host',
       ownerContact: contactStr
     };
 
-    this.propertyService.addProperty(newProp).subscribe(res => {
-      alert(`🎉 Property published successfully in ${this.currencySymbol}${this.price.toLocaleString()}!`);
-      this.router.navigate(['/properties', res.id]);
+    this.propertyService.addProperty(newProp).subscribe({
+      next: (res) => {
+        this.isSubmitting = false;
+        alert(`🎉 Property "${res.title}" published successfully to MongoDB!`);
+        this.router.navigate(['/properties', res.id]);
+      },
+      error: (err) => {
+        this.isSubmitting = false;
+        console.error('Error publishing property to backend:', err);
+        alert('Could not publish listing. Please check your network or inputs and try again.');
+      }
     });
   }
 }
