@@ -1,6 +1,6 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../../core/services/auth.service';
 
@@ -14,18 +14,23 @@ import { AuthService } from '../../../core/services/auth.service';
         <div class="auth-header">
           <div class="logo-icon"><i class="fa-solid fa-cube"></i></div>
           <h2>Create Your Account</h2>
-          <p>Join OmniSpace to explore listings and build virtual designs</p>
+          <p>Join OmniSpace to list properties and design virtual spaces</p>
+        </div>
+
+        <div *ngIf="returnUrl.includes('properties/new')" class="info-alert">
+          <i class="fa-solid fa-circle-info"></i>
+          <span>Create an account to publish your property listing. Your name and email will be linked as the verified owner.</span>
         </div>
 
         <form (ngSubmit)="onRegister()">
           <div class="form-group">
             <label>Full Name</label>
-            <input type="text" [(ngModel)]="name" name="name" required placeholder="Alex Johnson">
+            <input type="text" [(ngModel)]="name" name="name" required placeholder="Abhay Kumar">
           </div>
 
           <div class="form-group">
             <label>Email Address</label>
-            <input type="email" [(ngModel)]="email" name="email" required placeholder="alex@example.com">
+            <input type="email" [(ngModel)]="email" name="email" required placeholder="ak24nov2002@gmail.com">
           </div>
 
           <div class="form-group">
@@ -34,12 +39,12 @@ import { AuthService } from '../../../core/services/auth.service';
           </div>
 
           <button type="submit" class="btn btn-primary btn-full mt-3">
-            Register Account <i class="fa-solid fa-arrow-right"></i>
+            Register & Continue <i class="fa-solid fa-arrow-right"></i>
           </button>
         </form>
 
         <div class="auth-footer">
-          Already have an account? <a routerLink="/login">Log in here</a>
+          Already have an account? <a [routerLink]="['/login']" [queryParams]="{ returnUrl: returnUrl }">Log in here</a>
         </div>
       </div>
     </div>
@@ -65,7 +70,7 @@ import { AuthService } from '../../../core/services/auth.service';
 
       .auth-header {
         text-align: center;
-        margin-bottom: 28px;
+        margin-bottom: 24px;
 
         .logo-icon {
           width: 48px;
@@ -84,6 +89,21 @@ import { AuthService } from '../../../core/services/auth.service';
         p { color: var(--gray-muted); font-size: 0.9rem; }
       }
 
+      .info-alert {
+        background: rgba(0, 166, 153, 0.1);
+        border: 1px solid var(--secondary);
+        color: #007a70;
+        padding: 12px 14px;
+        border-radius: var(--radius-sm);
+        font-size: 0.85rem;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        margin-bottom: 20px;
+
+        i { margin-top: 3px; font-size: 1rem; color: var(--secondary); }
+      }
+
       .btn-full { width: 100%; }
       .mt-3 { margin-top: 16px; }
 
@@ -97,13 +117,19 @@ import { AuthService } from '../../../core/services/auth.service';
     }
   `]
 })
-export class RegisterComponent {
+export class RegisterComponent implements OnInit {
   auth = inject(AuthService);
   router = inject(Router);
+  route = inject(ActivatedRoute);
 
   name = '';
   email = '';
   password = '';
+  returnUrl = '/';
+
+  ngOnInit() {
+    this.returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/';
+  }
 
   onRegister() {
     if (!this.name || !this.email || !this.password) return;
@@ -116,7 +142,6 @@ export class RegisterComponent {
       token: 'mock-jwt-token-new'
     });
 
-    alert('Account created successfully!');
-    this.router.navigate(['/']);
+    this.router.navigateByUrl(this.returnUrl);
   }
 }

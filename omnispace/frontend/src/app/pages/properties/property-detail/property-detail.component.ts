@@ -126,19 +126,23 @@ declare var L: any;
               <p>Contact the owner or book a virtual walkthrough.</p>
 
               <div class="owner-profile">
-                <div class="avatar"><i class="fa-solid fa-user-tie"></i></div>
+                <div class="avatar"><i class="fa-solid fa-user-check"></i></div>
                 <div class="owner-meta">
-                  <div class="name">{{ property.ownerName || 'Property Host' }}</div>
-                  <div class="role">Verified Owner / Agent</div>
+                  <div class="name">{{ property.ownerName || 'Verified Host' }}</div>
+                  <div class="role"><i class="fa-solid fa-shield-halved text-success"></i> Verified Listing Owner</div>
+                  <div class="contact-info-sub">{{ property.ownerContact }}</div>
                 </div>
               </div>
 
               <div class="contact-buttons">
-                <a [href]="'tel:' + (property.ownerContact || '+918091109624')" class="btn btn-primary btn-full">
-                  <i class="fa-solid fa-phone"></i> Call Agent
+                <a *ngIf="getPhoneContact()" [href]="'tel:' + getPhoneContact()" class="btn btn-primary btn-full">
+                  <i class="fa-solid fa-phone"></i> Call {{ property.ownerName || 'Host' }}
                 </a>
-                <button (click)="onInquire()" class="btn btn-outline btn-full">
-                  <i class="fa-solid fa-envelope"></i> Send Message
+                <a *ngIf="getEmailContact()" [href]="'mailto:' + getEmailContact() + '?subject=' + encodeSubject()" class="btn btn-outline btn-full">
+                  <i class="fa-solid fa-envelope"></i> Email {{ property.ownerName || 'Host' }}
+                </a>
+                <button *ngIf="!getPhoneContact() && !getEmailContact()" (click)="onInquire()" class="btn btn-primary btn-full">
+                  <i class="fa-solid fa-paper-plane"></i> Send Inquiry
                 </button>
               </div>
             </div>
@@ -508,7 +512,25 @@ export class PropertyDetailComponent implements OnInit, AfterViewInit {
     marker.bindPopup(`<strong>${this.property?.title || 'Property Location'}</strong><br>${this.property?.location || ''}`).openPopup();
   }
 
+  getPhoneContact(): string | null {
+    if (!this.property?.ownerContact) return null;
+    const contact = this.property.ownerContact;
+    const match = contact.match(/(\+?[0-9\s-]{7,15})/);
+    return match ? match[0].trim() : null;
+  }
+
+  getEmailContact(): string | null {
+    if (!this.property?.ownerContact) return null;
+    const contact = this.property.ownerContact;
+    const match = contact.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+    return match ? match[0].trim() : null;
+  }
+
+  encodeSubject(): string {
+    return encodeURIComponent(`Inquiry for ${this.property?.title || 'Property'}`);
+  }
+
   onInquire() {
-    alert('Inquiry sent to property agent! They will contact you shortly.');
+    alert(`Inquiry request submitted for "${this.property?.title}". The host will contact you shortly!`);
   }
 }

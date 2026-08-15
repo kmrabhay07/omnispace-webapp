@@ -1,35 +1,61 @@
 import { Component, inject, OnInit, AfterViewInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
+import { Router, RouterLink } from '@angular/router';
 import { PropertyService } from '../../../core/services/property.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { Property } from '../../../core/models/property.model';
+import { User } from '../../../core/models/user.model';
 
-declare var L: any;
+declare var L: any; // Leaflet declaration for OpenStreetMap
 
 @Component({
   selector: 'app-property-form',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   template: `
     <div class="property-form-page animate-fade-in">
       <div class="container max-width-md">
         <div class="form-card">
           <div class="form-header">
             <h2>List Your Property</h2>
-            <p>Publish your residential or commercial space with interactive map & interior design ready</p>
+            <p>Publish a residential or commercial space for potential buyers & virtual interior staging</p>
+          </div>
+
+          <!-- Verified Host Banner -->
+          <div class="host-info-card" *ngIf="currentUser">
+            <div class="host-badge-header">
+              <div class="host-avatar"><i class="fa-solid fa-user-check"></i></div>
+              <div class="host-text">
+                <div class="label">Verified Listing Owner</div>
+                <div class="host-name">{{ currentUser.name }} <span class="host-email">({{ currentUser.email }})</span></div>
+              </div>
+              <div class="account-tag"><i class="fa-solid fa-shield-halved"></i> Account Linked</div>
+            </div>
           </div>
 
           <form (ngSubmit)="onSubmit()">
             <!-- Title -->
             <div class="form-group">
               <label>Property Title *</label>
-              <input type="text" [(ngModel)]="title" name="title" required placeholder="e.g. Skyline Luxury Glass Penthouse">
+              <input type="text" [(ngModel)]="title" name="title" required placeholder="e.g. Modern Minimalist Skyline Penthouse">
             </div>
 
-            <!-- Property Type & Category -->
+            <!-- Host Contact Customization -->
             <div class="form-row">
-              <div class="form-group">
+              <div class="form-group flex-1">
+                <label>Listing Agent / Host Name</label>
+                <input type="text" [(ngModel)]="ownerName" name="ownerName" placeholder="e.g. Abhay Kumar">
+              </div>
+              <div class="form-group flex-1">
+                <label>Direct Contact Phone / WhatsApp (Optional)</label>
+                <input type="text" [(ngModel)]="ownerPhone" name="ownerPhone" placeholder="e.g. +91 98765 43210">
+              </div>
+            </div>
+
+            <!-- Type and Category -->
+            <div class="form-row">
+              <div class="form-group flex-1">
                 <label>Property Type</label>
                 <select [(ngModel)]="propertyType" name="propertyType">
                   <option value="RESIDENTIAL">Residential</option>
@@ -37,7 +63,7 @@ declare var L: any;
                 </select>
               </div>
 
-              <div class="form-group">
+              <div class="form-group flex-1">
                 <label>Category</label>
                 <select [(ngModel)]="category" name="category">
                   <option value="Apartment">Apartment</option>
@@ -52,20 +78,23 @@ declare var L: any;
 
             <!-- Currency & Price Row -->
             <div class="form-row">
-              <div class="form-group flex-1">
+              <div class="form-group" style="width: 140px; flex: none;">
                 <label>Currency</label>
                 <select [(ngModel)]="currency" name="currency" (change)="onCurrencyChange()">
-                  <option value="INR">INR (₹ - Indian Rupee)</option>
-                  <option value="USD">USD ($ - US Dollar)</option>
-                  <option value="EUR">EUR (€ - Euro)</option>
-                  <option value="GBP">GBP (£ - British Pound)</option>
-                  <option value="AED">AED (د.إ - UAE Dirham)</option>
+                  <option value="INR">INR (₹)</option>
+                  <option value="USD">USD ($)</option>
+                  <option value="EUR">EUR (€)</option>
+                  <option value="GBP">GBP (£)</option>
+                  <option value="AED">AED (د.إ)</option>
                 </select>
               </div>
 
               <div class="form-group flex-2">
-                <label>Listing Price ({{ currencySymbol }}) *</label>
-                <input type="number" [(ngModel)]="price" name="price" required placeholder="e.g. 7500000">
+                <label>Price (in {{ currencySymbol }}) *</label>
+                <div class="input-with-symbol">
+                  <span class="currency-prefix">{{ currencySymbol }}</span>
+                  <input type="number" [(ngModel)]="price" name="price" required min="1000">
+                </div>
               </div>
 
               <div class="form-group flex-1">
@@ -78,49 +107,52 @@ declare var L: any;
               </div>
             </div>
 
-            <!-- Image Upload & Preview Section -->
-            <div class="form-group">
-              <label>Property Photos & Image Upload *</label>
-              <div class="upload-dropzone" (click)="fileInput.click()" (dragover)="onDragOver($event)" (drop)="onDrop($event)">
-                <input #fileInput type="file" multiple accept="image/*" (change)="onFileSelected($event)" style="display:none">
-                <i class="fa-solid fa-cloud-arrow-up upload-icon"></i>
-                <h4>Drag & drop images here or <span>Browse Files</span></h4>
-                <p>Upload PNG, JPG, or WEBP photos from your device</p>
+            <!-- Image Upload & Gallery Section -->
+            <div class="form-group image-upload-section">
+              <label><i class="fa-solid fa-images"></i> Property Photos (Upload or Drop Images)</label>
+              
+              <!-- Drag and Drop Zone -->
+              <div class="upload-dropzone" (click)="fileInput.click()" (dragover)="onDragOver($event)" (drop)="onDropFile($event)">
+                <input #fileInput type="file" (change)="onFileSelected($event)" multiple accept="image/*" style="display: none;">
+                <div class="upload-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+                <h4>Drag & drop images here or <span>browse files</span></h4>
+                <p>Supports PNG, JPG, JPEG, WebP. High resolution photos recommend for 3D visual staging.</p>
               </div>
 
-              <!-- Live Uploaded Images Preview Grid -->
+              <!-- Uploaded Images Preview Gallery -->
               <div class="uploaded-gallery-grid" *ngIf="uploadedImages.length > 0">
-                <div class="gallery-card" *ngFor="let img of uploadedImages; let i = index">
-                  <img [src]="img" alt="Uploaded Photo">
-                  <div class="card-overlay">
-                    <button type="button" class="btn-badge" [class.featured]="featuredImage === img" (click)="setFeatured(img)">
-                      {{ featuredImage === img ? '★ Featured' : 'Set Featured' }}
+                <div class="image-thumb-card" *ngFor="let img of uploadedImages; let i = index" [class.is-featured]="img === featuredImage">
+                  <img [src]="img" alt="Uploaded photo">
+                  <div class="thumb-overlay">
+                    <button type="button" class="btn-badge" (click)="setAsFeatured(img)" [title]="img === featuredImage ? 'Featured Photo' : 'Set as Featured'">
+                      <i [class]="img === featuredImage ? 'fa-solid fa-star text-warning' : 'fa-regular fa-star'"></i>
+                      {{ img === featuredImage ? 'Featured' : 'Make Featured' }}
                     </button>
-                    <button type="button" class="btn-delete" (click)="removeImage(i)">
+                    <button type="button" class="btn-delete" (click)="removeImage(i)" title="Remove Photo">
                       <i class="fa-solid fa-trash"></i>
                     </button>
                   </div>
                 </div>
               </div>
 
-              <!-- Fallback Direct URL option -->
+              <!-- Direct URL Fallback -->
               <div class="url-input-toggle">
-                <small>Or paste direct photo URL:</small>
+                <small>Or paste an image URL directly:</small>
                 <div class="input-with-button">
-                  <input type="url" [(ngModel)]="customImageUrl" name="customImageUrl" placeholder="https://images.unsplash.com/photo-...">
-                  <button type="button" class="btn btn-sm btn-outline" (click)="addCustomUrl()">Add URL</button>
+                  <input type="url" [(ngModel)]="customImageUrl" name="customImageUrl" placeholder="https://images.unsplash.com/...">
+                  <button type="button" class="btn btn-outline btn-sm" (click)="addCustomImageUrl()">Add URL</button>
                 </div>
               </div>
             </div>
 
-            <!-- Location & Address -->
+            <!-- Location & Free Maps -->
             <div class="form-row">
-              <div class="form-group">
-                <label>City & Neighborhood *</label>
+              <div class="form-group flex-1">
+                <label>City / Location *</label>
                 <input type="text" [(ngModel)]="location" name="location" required placeholder="e.g. Indiranagar, Bengaluru">
               </div>
 
-              <div class="form-group">
+              <div class="form-group flex-1">
                 <label>Full Address</label>
                 <input type="text" [(ngModel)]="address" name="address" placeholder="100 Feet Road, Suite 402">
               </div>
@@ -185,7 +217,8 @@ declare var L: any;
   `,
   styles: [`
     .property-form-page {
-      padding: 60px 0 100px;
+      padding: 40px 0 80px;
+      background: var(--gray-light);
 
       .max-width-md { max-width: 780px; }
 
@@ -198,10 +231,56 @@ declare var L: any;
       }
 
       .form-header {
-        margin-bottom: 30px;
+        margin-bottom: 24px;
         text-align: center;
         h2 { font-size: 2rem; margin-bottom: 6px; }
         p { color: var(--gray-muted); }
+      }
+
+      .host-info-card {
+        background: linear-gradient(135deg, rgba(0, 166, 153, 0.08), rgba(255, 90, 95, 0.05));
+        border: 1px solid rgba(0, 166, 153, 0.25);
+        border-radius: var(--radius-md);
+        padding: 14px 18px;
+        margin-bottom: 24px;
+
+        .host-badge-header {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+
+          .host-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: var(--secondary);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.1rem;
+          }
+
+          .host-text {
+            flex: 1;
+            .label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--secondary); letter-spacing: 0.5px; }
+            .host-name { font-size: 0.95rem; font-weight: 700; color: var(--dark); }
+            .host-email { font-weight: normal; color: var(--gray-muted); font-size: 0.85rem; }
+          }
+
+          .account-tag {
+            background: var(--white);
+            color: var(--secondary);
+            border: 1px solid var(--secondary);
+            font-size: 0.75rem;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: var(--radius-full);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+          }
+        }
       }
 
       .form-row {
@@ -249,16 +328,21 @@ declare var L: any;
 
       .uploaded-gallery-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
         gap: 12px;
         margin-top: 14px;
 
-        .gallery-card {
+        .image-thumb-card {
           position: relative;
           height: 100px;
           border-radius: var(--radius-sm);
           overflow: hidden;
-          border: 1px solid var(--gray-border);
+          border: 2px solid transparent;
+
+          &.is-featured {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(255, 90, 95, 0.3);
+          }
 
           img {
             width: 100%;
@@ -266,37 +350,38 @@ declare var L: any;
             object-fit: cover;
           }
 
-          .card-overlay {
+          .thumb-overlay {
             position: absolute;
             top: 0;
             left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.4);
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.45);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 8px;
+            padding: 6px;
             opacity: 0;
             transition: opacity 0.2s ease;
           }
 
-          &:hover .card-overlay {
+          &:hover .thumb-overlay, &.is-featured .thumb-overlay {
             opacity: 1;
           }
 
           .btn-badge {
-            background: rgba(255, 255, 255, 0.85);
-            border: none;
-            padding: 3px 8px;
-            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
             font-size: 0.7rem;
-            font-weight: 700;
+            padding: 3px 6px;
+            border-radius: 4px;
             cursor: pointer;
 
-            &.featured {
+            .text-warning { color: #f59e0b; }
+
+            &:hover {
               background: var(--primary);
-              color: white;
             }
           }
 
@@ -369,11 +454,11 @@ declare var L: any;
           .city-chip {
             background: #f1f5f9;
             border: 1px solid var(--gray-border);
-            padding: 3px 10px;
-            border-radius: 999px;
-            font-size: 0.78rem;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.15s ease;
 
             &:hover {
               background: var(--primary);
@@ -406,7 +491,13 @@ declare var L: any;
 })
 export class PropertyFormComponent implements OnInit, AfterViewInit {
   propertyService = inject(PropertyService);
+  authService = inject(AuthService);
   router = inject(Router);
+
+  currentUser: User | null = null;
+  ownerName = '';
+  ownerEmail = '';
+  ownerPhone = '';
 
   title = '';
   propertyType: 'RESIDENTIAL' | 'COMMERCIAL' = 'RESIDENTIAL';
@@ -440,6 +531,14 @@ export class PropertyFormComponent implements OnInit, AfterViewInit {
   private markerInstance: any;
 
   ngOnInit() {
+    this.currentUser = this.authService.currentUser();
+    if (!this.currentUser) {
+      this.router.navigate(['/login'], { queryParams: { returnUrl: '/properties/new' } });
+      return;
+    }
+
+    this.ownerName = this.currentUser.name;
+    this.ownerEmail = this.currentUser.email;
     this.onCurrencyChange();
   }
 
@@ -458,29 +557,18 @@ export class PropertyFormComponent implements OnInit, AfterViewInit {
     this.currencySymbol = symbolMap[this.currency] || '₹';
     
     // Adjust sample price based on currency
-    if (this.currency === 'INR' && this.price < 100000) {
-      this.price = 7500000;
-    } else if (this.currency !== 'INR' && this.price > 2000000) {
-      this.price = 650000;
+    if (this.currency === 'INR' && this.price < 500000) {
+      this.price = 8500000;
+    } else if (this.currency === 'USD' && this.price > 5000000) {
+      this.price = 1250000;
     }
   }
 
-  // File Upload Handlers
+  // Image Upload Handlers
   onFileSelected(event: any) {
     const files: FileList = event.target.files;
-    if (files && files.length > 0) {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const reader = new FileReader();
-        reader.onload = (e: any) => {
-          const result = e.target.result;
-          this.uploadedImages.push(result);
-          if (!this.featuredImage) {
-            this.featuredImage = result;
-          }
-        };
-        reader.readAsDataURL(file);
-      }
+    if (files) {
+      this.handleImageFiles(files);
     }
   }
 
@@ -489,36 +577,32 @@ export class PropertyFormComponent implements OnInit, AfterViewInit {
     event.stopPropagation();
   }
 
-  onDrop(event: DragEvent) {
+  onDropFile(event: DragEvent) {
     event.preventDefault();
     event.stopPropagation();
-    if (event.dataTransfer?.files && event.dataTransfer.files.length > 0) {
-      const files = event.dataTransfer.files;
-      for (let i = 0; i < files.length; i++) {
+    if (event.dataTransfer?.files) {
+      this.handleImageFiles(event.dataTransfer.files);
+    }
+  }
+
+  private handleImageFiles(files: FileList) {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.type.startsWith('image/')) {
         const reader = new FileReader();
         reader.onload = (e: any) => {
-          this.uploadedImages.push(e.target.result);
+          const base64 = e.target.result;
+          this.uploadedImages.push(base64);
           if (!this.featuredImage) {
-            this.featuredImage = e.target.result;
+            this.featuredImage = base64;
           }
         };
-        reader.readAsDataURL(files[i]);
+        reader.readAsDataURL(file);
       }
     }
   }
 
-  setFeatured(img: string) {
-    this.featuredImage = img;
-  }
-
-  removeImage(index: number) {
-    const removed = this.uploadedImages.splice(index, 1)[0];
-    if (this.featuredImage === removed && this.uploadedImages.length > 0) {
-      this.featuredImage = this.uploadedImages[0];
-    }
-  }
-
-  addCustomUrl() {
+  addCustomImageUrl() {
     if (this.customImageUrl && this.customImageUrl.startsWith('http')) {
       this.uploadedImages.push(this.customImageUrl);
       if (!this.featuredImage) {
@@ -528,29 +612,38 @@ export class PropertyFormComponent implements OnInit, AfterViewInit {
     }
   }
 
-  // Free Map Picker Initialization
+  setAsFeatured(img: string) {
+    this.featuredImage = img;
+  }
+
+  removeImage(index: number) {
+    const removed = this.uploadedImages.splice(index, 1)[0];
+    if (this.featuredImage === removed) {
+      this.featuredImage = this.uploadedImages[0] || '';
+    }
+  }
+
+  // Leaflet Interactive Free Map Picker
   initMapPicker() {
-    const mapElement = document.getElementById('property-picker-map');
-    if (!mapElement || typeof L === 'undefined' || this.mapInstance) return;
+    if (typeof L === 'undefined') return;
+    const mapEl = document.getElementById('property-picker-map');
+    if (!mapEl) return;
 
     this.mapInstance = L.map('property-picker-map').setView([this.latitude, this.longitude], 12);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+      attribution: '© OpenStreetMap contributors'
     }).addTo(this.mapInstance);
 
-    // Draggable Pin Marker
     this.markerInstance = L.marker([this.latitude, this.longitude], { draggable: true }).addTo(this.mapInstance);
-    this.markerInstance.bindPopup('<strong>Drag me</strong> to set property location!').openPopup();
 
-    this.markerInstance.on('dragend', (e: any) => {
-      const pos = e.target.getLatLng();
-      this.latitude = pos.lat;
-      this.longitude = pos.lng;
+    this.markerInstance.on('dragend', (event: any) => {
+      const position = event.target.getLatLng();
+      this.latitude = position.lat;
+      this.longitude = position.lng;
     });
 
-    // Click anywhere on map to reposition marker
     this.mapInstance.on('click', (e: any) => {
       this.latitude = e.latlng.lat;
       this.longitude = e.latlng.lng;
@@ -579,6 +672,8 @@ export class PropertyFormComponent implements OnInit, AfterViewInit {
 
     const finalFeatured = this.featuredImage || (this.uploadedImages.length > 0 ? this.uploadedImages[0] : 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80');
 
+    const contactStr = this.ownerPhone ? `${this.ownerPhone} • ${this.ownerEmail}` : this.ownerEmail;
+
     const newProp: Omit<Property, 'id' | 'createdAt'> = {
       title: this.title,
       propertyType: this.propertyType,
@@ -598,8 +693,9 @@ export class PropertyFormComponent implements OnInit, AfterViewInit {
       images: this.uploadedImages.length > 0 ? this.uploadedImages : [finalFeatured],
       description: this.description,
       amenities: ['Smart Access', 'High Ceilings', 'Parking', '24/7 Security'],
-      ownerName: 'Property Host',
-      ownerContact: '+91-8091109624'
+      ownerId: this.currentUser?.id || 'u-1',
+      ownerName: this.ownerName || this.currentUser?.name || 'Property Host',
+      ownerContact: contactStr
     };
 
     this.propertyService.addProperty(newProp).subscribe(res => {

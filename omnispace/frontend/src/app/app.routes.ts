@@ -6,11 +6,12 @@ import { PropertyFormComponent } from './pages/properties/property-form/property
 import { DesignerComponent } from './pages/designer/designer.component';
 import { LoginComponent } from './pages/auth/login/login.component';
 import { RegisterComponent } from './pages/auth/register/register.component';
+import { authGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   { path: '', component: HomeComponent },
   { path: 'properties', component: PropertyListComponent },
-  { path: 'properties/new', component: PropertyFormComponent },
+  { path: 'properties/new', component: PropertyFormComponent, canActivate: [authGuard] },
   { path: 'properties/:id', component: PropertyDetailComponent },
   { path: 'designer', component: DesignerComponent },
   { path: 'login', component: LoginComponent },
