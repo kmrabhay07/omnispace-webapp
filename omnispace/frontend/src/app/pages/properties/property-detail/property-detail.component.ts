@@ -108,22 +108,136 @@ interface ChatMessage {
               </div>
             </div>
 
-            <!-- 3D Interior Staging CTA Banner -->
-            <div class="designer-cta-banner">
-              <div class="cta-text">
-                <h3><i class="fa-solid fa-wand-magic-sparkles"></i> Customize in 3D Design Studio</h3>
-                <p>Rearrange real 3D furniture, change wall paints, and floor textures in our interactive studio.</p>
+            <!-- 2D FLOOR PLAN & 3D STUDIO VIEWER TABS -->
+            <div class="section-block visual-showcase-section">
+              <div class="showcase-header-row">
+                <h2><i class="fa-solid fa-compass-drafting text-primary"></i> 2D Blueprint & 3D Interactive Studio</h2>
+                
+                <div class="visual-tab-buttons">
+                  <button [class.active]="activeVisualTab === '2D'" (click)="activeVisualTab = '2D'">
+                    <i class="fa-solid fa-layer-group"></i> 2D Floor Plan
+                  </button>
+                  <button [class.active]="activeVisualTab === '3D'" (click)="activeVisualTab = '3D'">
+                    <i class="fa-solid fa-cube"></i> 3D Virtual Studio
+                  </button>
+                  <button [class.active]="activeVisualTab === 'MAP'" (click)="setMapTab()">
+                    <i class="fa-solid fa-map-location-dot"></i> Map
+                  </button>
+                </div>
               </div>
-              <a routerLink="/designer" class="btn btn-secondary">
-                <i class="fa-solid fa-cube"></i> Open 3D Studio
-              </a>
-            </div>
 
-            <!-- Interactive Map Section -->
-            <div class="section-block">
-              <h2>Location & Map</h2>
-              <p class="map-location-title"><i class="fa-solid fa-map-location-dot"></i> {{ property.address ? (property.address + ', ' + property.location) : property.location }}</p>
-              <div id="property-detail-map" class="map-container"></div>
+              <!-- 2D ARCHITECTURAL BLUEPRINT -->
+              <div class="showcase-card blueprint-card animate-fade-in" *ngIf="activeVisualTab === '2D'">
+                <div class="blueprint-top-bar">
+                  <div class="blueprint-meta">
+                    <span class="scale-tag"><i class="fa-solid fa-ruler"></i> Scale: 1/4" = 1'0"</span>
+                    <span class="area-tag">Total: {{ property.areaSqFt | number }} Sq Ft</span>
+                    <span class="room-tag">{{ property.bedrooms }} BHK Architecture</span>
+                  </div>
+                  <a [routerLink]="['/designer']" [queryParams]="{propertyId: property.id}" class="btn btn-secondary btn-sm">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Customize in 3D
+                  </a>
+                </div>
+
+                <!-- Interactive SVG Architectural Blueprint -->
+                <div class="blueprint-canvas-wrapper">
+                  <svg viewBox="0 0 800 480" class="blueprint-svg" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Grid background -->
+                    <defs>
+                      <pattern id="cadGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+                        <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(59, 130, 246, 0.12)" stroke-width="1"/>
+                      </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="#0f172a" />
+                    <rect width="100%" height="100%" fill="url(#cadGrid)" />
+
+                    <!-- Outer Walls -->
+                    <rect x="50" y="40" width="700" height="400" fill="rgba(30, 41, 59, 0.7)" stroke="#60a5fa" stroke-width="4" rx="4"/>
+
+                    <!-- Master Bedroom (Top Left) -->
+                    <g class="room-group">
+                      <rect x="54" y="44" width="280" height="220" fill="rgba(59, 130, 246, 0.1)" stroke="#38bdf8" stroke-width="2" stroke-dasharray="2,2"/>
+                      <text x="194" y="140" fill="#f8fafc" font-size="15" font-weight="700" text-anchor="middle">MASTER SUITE</text>
+                      <text x="194" y="165" fill="#94a3b8" font-size="12" text-anchor="middle">16' × 14' • {{ (property.areaSqFt * 0.32) | number:'1.0-0' }} sq ft</text>
+                      <!-- Bed outline -->
+                      <rect x="80" y="70" width="90" height="110" fill="rgba(255,255,255,0.05)" stroke="#60a5fa" stroke-width="1.5" rx="3"/>
+                      <text x="125" y="130" fill="#94a3b8" font-size="10" text-anchor="middle">King Bed</text>
+                    </g>
+
+                    <!-- Attached Master Bath -->
+                    <g class="room-group">
+                      <rect x="54" y="264" width="160" height="172" fill="rgba(56, 189, 248, 0.08)" stroke="#38bdf8" stroke-width="2"/>
+                      <text x="134" y="345" fill="#f8fafc" font-size="13" font-weight="700" text-anchor="middle">EN-SUITE BATH</text>
+                      <text x="134" y="365" fill="#94a3b8" font-size="11" text-anchor="middle">8' × 10'</text>
+                    </g>
+
+                    <!-- Living & Dining Great Room (Center / Right) -->
+                    <g class="room-group">
+                      <rect x="334" y="44" width="412" height="260" fill="rgba(16, 185, 129, 0.08)" stroke="#34d399" stroke-width="2"/>
+                      <text x="540" y="140" fill="#f8fafc" font-size="16" font-weight="700" text-anchor="middle">LIVING & DINING SALON</text>
+                      <text x="540" y="165" fill="#94a3b8" font-size="13" text-anchor="middle">24' × 18' • {{ (property.areaSqFt * 0.44) | number:'1.0-0' }} sq ft</text>
+                      <!-- Sofa outline -->
+                      <rect x="370" y="80" width="130" height="55" fill="rgba(255,255,255,0.05)" stroke="#34d399" stroke-width="1.5" rx="4"/>
+                      <text x="435" y="112" fill="#94a3b8" font-size="10" text-anchor="middle">3-Seater Sofa</text>
+                      <!-- Dining Table outline -->
+                      <rect x="560" y="80" width="100" height="60" fill="rgba(255,255,255,0.05)" stroke="#34d399" stroke-width="1.5" rx="4"/>
+                      <text x="610" y="115" fill="#94a3b8" font-size="10" text-anchor="middle">Dining 6P</text>
+                    </g>
+
+                    <!-- Kitchen & Pantry (Bottom Center) -->
+                    <g class="room-group">
+                      <rect x="214" y="264" width="260" height="172" fill="rgba(245, 158, 11, 0.08)" stroke="#fbbf24" stroke-width="2"/>
+                      <text x="344" y="345" fill="#f8fafc" font-size="13" font-weight="700" text-anchor="middle">MODERN KITCHEN</text>
+                      <text x="344" y="365" fill="#94a3b8" font-size="11" text-anchor="middle">14' × 10' • Modular Island</text>
+                    </g>
+
+                    <!-- Balcony / Terrace (Bottom Right) -->
+                    <g class="room-group">
+                      <rect x="474" y="304" width="272" height="132" fill="rgba(168, 85, 247, 0.08)" stroke="#c084fc" stroke-width="2" stroke-dasharray="4,4"/>
+                      <text x="610" y="365" fill="#f8fafc" font-size="13" font-weight="700" text-anchor="middle">TERRACE BALCONY</text>
+                      <text x="610" y="385" fill="#94a3b8" font-size="11" text-anchor="middle">Open Sky View</text>
+                    </g>
+
+                    <!-- Door swing indicators -->
+                    <path d="M 334 160 A 30 30 0 0 1 364 190" fill="none" stroke="#60a5fa" stroke-width="1.5" stroke-dasharray="2,2"/>
+                    <path d="M 214 340 A 25 25 0 0 1 239 365" fill="none" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="2,2"/>
+                  </svg>
+                </div>
+
+                <!-- Blueprint Room Breakdown Pills -->
+                <div class="blueprint-room-metrics">
+                  <div class="metric-chip"><i class="fa-solid fa-bed text-primary"></i> Master Suite: <strong>{{ (property.areaSqFt * 0.32) | number:'1.0-0' }} sq ft</strong></div>
+                  <div class="metric-chip"><i class="fa-solid fa-couch text-success"></i> Living Salon: <strong>{{ (property.areaSqFt * 0.44) | number:'1.0-0' }} sq ft</strong></div>
+                  <div class="metric-chip"><i class="fa-solid fa-utensils text-warning"></i> Kitchen & Dining: <strong>{{ (property.areaSqFt * 0.16) | number:'1.0-0' }} sq ft</strong></div>
+                  <div class="metric-chip"><i class="fa-solid fa-tree text-secondary"></i> Balcony / Deck: <strong>{{ (property.areaSqFt * 0.08) | number:'1.0-0' }} sq ft</strong></div>
+                </div>
+              </div>
+
+              <!-- 3D VIRTUAL STUDIO TAB -->
+              <div class="showcase-card studio-preview-card animate-fade-in" *ngIf="activeVisualTab === '3D'">
+                <div class="studio-hero-content">
+                  <div class="studio-icon-circle"><i class="fa-solid fa-wand-magic-sparkles"></i></div>
+                  <h3>Interactive 3D Virtual Interior Studio</h3>
+                  <p>Step inside this {{ property.title }} in full real-time 3D. Arrange sofas, beds, coffee tables, customize wall paints, floor hardwoods, and simulate daylight vs night lighting.</p>
+                  
+                  <div class="studio-feature-badges">
+                    <span><i class="fa-solid fa-cubes"></i> 30+ 3D Furniture Models</span>
+                    <span><i class="fa-solid fa-palette"></i> Real-time Paint Swatches</span>
+                    <span><i class="fa-solid fa-sun"></i> Day / Night Simulation</span>
+                    <span><i class="fa-solid fa-camera"></i> 4K Photo Export</span>
+                  </div>
+
+                  <a [routerLink]="['/designer']" [queryParams]="{propertyId: property.id}" class="btn btn-primary btn-lg mt-3">
+                    <i class="fa-solid fa-cube"></i> Launch Full 3D Walkthrough Studio
+                  </a>
+                </div>
+              </div>
+
+              <!-- NEIGHBORHOOD MAP TAB -->
+              <div class="showcase-card map-card animate-fade-in" [style.display]="activeVisualTab === 'MAP' ? 'block' : 'none'">
+                <p class="map-location-title"><i class="fa-solid fa-map-location-dot"></i> {{ property.address ? (property.address + ', ' + property.location) : property.location }}</p>
+                <div id="property-detail-map" class="map-container"></div>
+              </div>
             </div>
           </main>
 
@@ -448,7 +562,7 @@ interface ChatMessage {
 
           .map-container {
             width: 100%;
-            height: 320px;
+            height: 340px;
             border-radius: var(--radius-md);
             border: 1px solid var(--gray-border);
             overflow: hidden;
@@ -456,31 +570,176 @@ interface ChatMessage {
           }
         }
 
-        .designer-cta-banner {
-          background: linear-gradient(135deg, var(--dark), #1A1E29);
+        .visual-showcase-section {
+          background: #ffffff;
+          border: 1px solid var(--gray-border);
           border-radius: var(--radius-lg);
-          padding: 28px;
-          color: white;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 32px;
-          box-shadow: var(--shadow-md);
+          padding: 24px;
+          box-shadow: var(--shadow-sm);
 
-          @media (max-width: 768px) {
-            flex-direction: column;
-            gap: 18px;
+          .showcase-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 20px;
+
+            h2 {
+              margin-bottom: 0;
+              display: flex;
+              align-items: center;
+              gap: 8px;
+            }
+
+            .visual-tab-buttons {
+              display: flex;
+              gap: 6px;
+              background: #f1f5f9;
+              padding: 4px;
+              border-radius: 999px;
+
+              button {
+                border: none;
+                background: transparent;
+                padding: 6px 14px;
+                border-radius: 999px;
+                font-size: 0.82rem;
+                font-weight: 700;
+                color: #64748b;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                transition: all 0.2s ease;
+
+                &:hover {
+                  color: #1e293b;
+                }
+
+                &.active {
+                  background: white;
+                  color: var(--primary);
+                  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+                }
+              }
+            }
+          }
+
+          .showcase-card {
+            border-radius: var(--radius-md);
+            overflow: hidden;
+          }
+
+          .blueprint-card {
+            background: #0b1120;
+            border: 1px solid #1e293b;
+            padding: 16px;
+
+            .blueprint-top-bar {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 12px;
+              flex-wrap: wrap;
+              gap: 8px;
+
+              .blueprint-meta {
+                display: flex;
+                gap: 8px;
+                flex-wrap: wrap;
+
+                span {
+                  background: rgba(59, 130, 246, 0.15);
+                  color: #93c5fd;
+                  border: 1px solid rgba(59, 130, 246, 0.3);
+                  padding: 3px 10px;
+                  border-radius: 6px;
+                  font-size: 0.75rem;
+                  font-weight: 600;
+                }
+              }
+            }
+
+            .blueprint-canvas-wrapper {
+              width: 100%;
+              border-radius: 8px;
+              overflow: hidden;
+
+              .blueprint-svg {
+                width: 100%;
+                height: auto;
+                display: block;
+              }
+            }
+
+            .blueprint-room-metrics {
+              display: grid;
+              grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+              gap: 8px;
+              margin-top: 14px;
+
+              .metric-chip {
+                background: #1e293b;
+                color: #e2e8f0;
+                padding: 8px 12px;
+                border-radius: 6px;
+                font-size: 0.8rem;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+
+                strong { color: #38bdf8; margin-left: auto; }
+              }
+            }
+          }
+
+          .studio-preview-card {
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            color: white;
+            padding: 36px 24px;
             text-align: center;
-          }
+            border-radius: var(--radius-md);
 
-          .cta-text {
-            h3 { color: white; font-size: 1.3rem; margin-bottom: 6px; }
-            p { color: #94A3B8; font-size: 0.9rem; margin: 0; }
-          }
+            .studio-icon-circle {
+              width: 56px;
+              height: 56px;
+              border-radius: 50%;
+              background: linear-gradient(135deg, var(--primary), #e07a5f);
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 1.6rem;
+              color: white;
+              margin-bottom: 16px;
+              box-shadow: 0 8px 20px rgba(255, 90, 95, 0.3);
+            }
 
-          .btn-secondary {
-            white-space: nowrap;
-            padding: 10px 20px;
+            h3 { font-size: 1.4rem; margin-bottom: 8px; color: white; }
+            p { color: #94a3b8; max-width: 540px; margin: 0 auto 20px; font-size: 0.95rem; line-height: 1.6; }
+
+            .studio-feature-badges {
+              display: flex;
+              justify-content: center;
+              flex-wrap: wrap;
+              gap: 10px;
+              margin-bottom: 24px;
+
+              span {
+                background: rgba(255, 255, 255, 0.08);
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                padding: 6px 14px;
+                border-radius: 999px;
+                font-size: 0.8rem;
+                color: #cbd5e1;
+                font-weight: 600;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+
+                i { color: var(--primary); }
+              }
+            }
           }
         }
       }
@@ -951,8 +1210,20 @@ export class PropertyDetailComponent implements OnInit, AfterViewInit, OnDestroy
   isLoading = true;
   property: Property | undefined;
   activeImage = '';
+  activeVisualTab: '2D' | '3D' | 'MAP' = '2D';
   private mapInstance: any;
   private chatPollTimer: any;
+
+  setMapTab() {
+    this.activeVisualTab = 'MAP';
+    setTimeout(() => {
+      if (this.mapInstance) {
+        this.mapInstance.invalidateSize();
+      } else {
+        this.initMap();
+      }
+    }, 200);
+  }
 
   // OLX CHAT SYSTEM
   isChatOpen = false;

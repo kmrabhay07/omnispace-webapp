@@ -95,17 +95,25 @@ import { PropertyCardComponent } from '../../../shared/components/property-card/
             </div>
           </div>
 
-          <div class="properties-grid" *ngIf="filteredProperties.length > 0; else emptyState">
+          <div class="properties-grid" *ngIf="filteredProperties.length > 0; else noPropsState">
             <app-property-card *ngFor="let p of filteredProperties" [property]="p"></app-property-card>
           </div>
 
-          <ng-template #emptyState>
-            <div class="empty-state">
-              <i class="fa-solid fa-building-circle-xmark"></i>
-              <h3>No properties match your filter</h3>
-              <p>Try resetting filters or searching with different criteria.</p>
-              <button (click)="resetFilters()" class="btn btn-primary">Reset Filters</button>
+          <ng-template #noPropsState>
+            <div class="empty-state py-5" *ngIf="isLoading; else emptyState">
+              <div style="font-size: 2.5rem; color: var(--primary); margin-bottom: 16px;">
+                <i class="fa-solid fa-circle-notch fa-spin"></i>
+              </div>
+              <p style="font-size: 1.1rem; color: var(--gray-muted);">Loading properties from database...</p>
             </div>
+            <ng-template #emptyState>
+              <div class="empty-state">
+                <i class="fa-solid fa-building-circle-xmark"></i>
+                <h3>No properties match your filter</h3>
+                <p>Try resetting filters or searching with different criteria.</p>
+                <button (click)="resetFilters()" class="btn btn-primary">Reset Filters</button>
+              </div>
+            </ng-template>
           </ng-template>
         </main>
       </div>
@@ -300,8 +308,9 @@ export class PropertyListComponent implements OnInit {
   route = inject(ActivatedRoute);
   cdr = inject(ChangeDetectorRef);
 
-  allProperties: Property[] = [];
-  filteredProperties: Property[] = [];
+  isLoading = true;
+  allProperties: Property[] = this.propertyService.propertiesSignal();
+  filteredProperties: Property[] = [...this.allProperties];
 
   selectedType = '';
   selectedCategory = '';
@@ -311,6 +320,11 @@ export class PropertyListComponent implements OnInit {
   sortBy = 'newest';
 
   ngOnInit() {
+    if (this.allProperties.length > 0) {
+      this.isLoading = false;
+      this.applyFilters();
+    }
+
     this.route.queryParams.subscribe(params => {
       if (params['type']) this.selectedType = params['type'];
       if (params['category']) this.selectedCategory = params['category'];
@@ -321,7 +335,11 @@ export class PropertyListComponent implements OnInit {
   }
 
   fetchProperties() {
+    if (this.allProperties.length === 0) {
+      this.isLoading = true;
+    }
     this.propertyService.getProperties().subscribe(props => {
+      this.isLoading = false;
       this.allProperties = props || [];
       this.applyFilters();
       this.cdr.markForCheck();
