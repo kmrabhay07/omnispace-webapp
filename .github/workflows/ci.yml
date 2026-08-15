@@ -19,10 +19,13 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Build & Test Spring Boot Backend
-        run: cd omnispace/backend && mvn clean test -DskipTests
+      - name: Build Spring Boot Backend
+        run: |
+          cd omnispace/backend
+          mvn clean package -DskipTests
         env:
-          MONGO_DB_URI: ${{ secrets.MONGO_DB_URI }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET || 'ci_dummy_jwt_secret_for_github_actions_build_pipeline_123456' }}
+          MONGO_DB_URI: ${{ secrets.MONGO_DB_URI || 'mongodb://localhost:27017/omnispace_ci' }}
 
   build-frontend:
     runs-on: ubuntu-latest
@@ -39,5 +42,5 @@ jobs:
       - name: Install & Build Angular SPA
         run: |
           cd omnispace/frontend
-          npm ci
-          npx ng build
+          npm ci --legacy-peer-deps
+          npx ng build --configuration production
