@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, AfterViewInit, OnDestroy, ViewChild, ElementRef } from '@angular/core';
+import { Component, inject, OnInit, AfterViewInit, OnDestroy, ViewChild, ElementRef, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -946,6 +946,7 @@ export class PropertyDetailComponent implements OnInit, AfterViewInit, OnDestroy
   propertyService = inject(PropertyService);
   authService = inject(AuthService);
   chatService = inject(ChatService);
+  cdr = inject(ChangeDetectorRef);
 
   isLoading = true;
   property: Property | undefined;
@@ -972,6 +973,7 @@ export class PropertyDetailComponent implements OnInit, AfterViewInit, OnDestroy
       const id = params.get('id');
       if (id) {
         this.isLoading = true;
+        this.cdr.markForCheck();
         this.propertyService.getPropertyById(id).subscribe(prop => {
           this.isLoading = false;
           this.property = prop;
@@ -980,9 +982,11 @@ export class PropertyDetailComponent implements OnInit, AfterViewInit, OnDestroy
             this.loadChatHistory(prop.id);
             setTimeout(() => this.initMap(), 300);
           }
+          this.cdr.markForCheck();
         });
       } else {
         this.isLoading = false;
+        this.cdr.markForCheck();
       }
     });
 
