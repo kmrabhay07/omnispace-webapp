@@ -45,7 +45,7 @@ declare var L: any; // Leaflet declaration for OpenStreetMap
             <div class="form-row">
               <div class="form-group flex-1">
                 <label>Listing Agent / Host Name</label>
-                <input type="text" [(ngModel)]="ownerName" name="ownerName" placeholder="e.g. Abhay Kumar">
+                <input type="text" [(ngModel)]="ownerName" name="ownerName" placeholder="e.g. Alex Morgan">
               </div>
               <div class="form-group flex-1">
                 <label>Direct Contact Phone / WhatsApp (Optional)</label>

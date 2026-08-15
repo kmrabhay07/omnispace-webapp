@@ -49,12 +49,12 @@ import { AuthService } from '../../../core/services/auth.service';
         <form (ngSubmit)="onRegister()">
           <div class="form-group">
             <label>Full Name</label>
-            <input type="text" [(ngModel)]="name" name="name" required placeholder="Abhay Kumar">
+            <input type="text" [(ngModel)]="name" name="name" required placeholder="e.g. Alex Morgan">
           </div>
 
           <div class="form-group">
             <label>Email Address</label>
-            <input type="email" [(ngModel)]="email" name="email" required placeholder="ak24nov2002@gmail.com">
+            <input type="email" [(ngModel)]="email" name="email" required placeholder="e.g. alex.morgan@example.com">
           </div>
 
           <div class="form-group">

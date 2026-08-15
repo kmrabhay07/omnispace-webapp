@@ -1186,7 +1186,7 @@ export class PropertyDetailComponent implements OnInit, AfterViewInit, OnDestroy
   }
 
   getCleanPhoneNumber(): string {
-    const phone = this.getPhoneContact() || '918091109624';
+    const phone = this.getPhoneContact() || '919876543210';
     return phone.replace(/[^0-9]/g, '');
   }
 

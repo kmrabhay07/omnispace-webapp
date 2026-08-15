@@ -109,8 +109,8 @@ export const MOCK_PROPERTIES: Property[] = [
       'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80',
       'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=80'
     ],
-    ownerName: 'Abhay Kumar',
-    ownerContact: '+91-8091109624',
+    ownerName: 'Aarav Sharma',
+    ownerContact: '+91-9876543210',
     createdAt: '2026-08-14T08:00:00Z'
   }
 ];
