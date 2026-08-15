@@ -1,4 +1,4 @@
-import { Component, ElementRef, ViewChild, AfterViewInit, inject, OnInit, OnDestroy } from '@angular/core';
+import { Component, ElementRef, ViewChild, AfterViewInit, inject, OnInit, OnDestroy, HostListener } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -19,14 +19,14 @@ declare var THREE: any;
       <!-- TOP TOOLBAR -->
       <header class="designer-toolbar">
         <div class="brand-sub">
-          <i class="fa-solid fa-cube"></i>
+          <div class="cube-icon"><i class="fa-solid fa-cube"></i></div>
           <span class="project-title">{{ currentProject.name }}</span>
         </div>
 
         <!-- 3D vs 2D View Switcher -->
         <div class="view-toggle">
           <button [class.active]="viewMode === '3D'" (click)="setViewMode('3D')">
-            <i class="fa-solid fa-cube"></i> 3D Studio (Walkthrough)
+            <i class="fa-solid fa-cube"></i> 3D Walkthrough
           </button>
           <button [class.active]="viewMode === 'TOP_DOWN'" (click)="setViewMode('TOP_DOWN')">
             <i class="fa-solid fa-layer-group"></i> 2D Floor Plan
@@ -168,22 +168,42 @@ declare var THREE: any;
           <div class="threejs-canvas-wrapper" #threeCanvasContainer [style.display]="viewMode === '3D' ? 'block' : 'none'"></div>
 
           <!-- 2D FLOOR PLAN / ELEVATION CANVAS (for 2D views) -->
-          <canvas #canvas2D class="canvas-2d" [style.display]="viewMode !== '3D' ? 'block' : 'none'"></canvas>
+          <canvas 
+            #canvas2D 
+            class="canvas-2d" 
+            [style.display]="viewMode !== '3D' ? 'block' : 'none'"
+            (mousedown)="on2DMouseDown($event)"
+            (mousemove)="on2DMouseMove($event)"
+            (mouseup)="on2DMouseUp($event)"
+            (mouseleave)="on2DMouseUp($event)"
+          ></canvas>
 
           <!-- 3D INTERACTION HINT OVERLAY -->
           <div class="viewport-hints" *ngIf="viewMode === '3D'">
-            <div class="hint-pill"><i class="fa-solid fa-computer-mouse"></i> Left Click + Drag: <strong>Orbit 3D Camera</strong></div>
-            <div class="hint-pill"><i class="fa-solid fa-arrows-up-down-left-right"></i> Right Click: <strong>Pan Room</strong></div>
-            <div class="hint-pill"><i class="fa-solid fa-magnifying-glass-plus"></i> Scroll: <strong>Zoom In/Out</strong></div>
+            <div class="hint-pill"><i class="fa-solid fa-arrows-up-down-left-right"></i> <strong>Click & Drag Any Object</strong> to Move</div>
+            <div class="hint-pill"><i class="fa-solid fa-computer-mouse"></i> Left Click Floor: <strong>Orbit Camera</strong></div>
+            <div class="hint-pill"><i class="fa-solid fa-keyboard"></i> Arrow Keys: <strong>Nudge Position</strong></div>
           </div>
 
           <!-- SELECTED ITEM FLOATING CONTROLLER -->
           <div class="selected-item-toolbar" *ngIf="selectedFurniture">
-            <span class="selected-title"><i class="fa-solid fa-couch"></i> {{ selectedFurniture.name }}</span>
+            <div class="selected-meta">
+              <span class="selected-title"><i class="fa-solid fa-couch"></i> {{ selectedFurniture.name }}</span>
+              <span class="selected-pos">{{ selectedFurniture.x | number:'1.0-0' }}', {{ selectedFurniture.y | number:'1.0-0' }}'</span>
+            </div>
+
+            <!-- Precision Direction Pad -->
+            <div class="move-dpad">
+              <button (click)="moveSelected(-3, 0)" title="Move Left (←)"><i class="fa-solid fa-arrow-left"></i></button>
+              <button (click)="moveSelected(0, -3)" title="Move Up (↑)"><i class="fa-solid fa-arrow-up"></i></button>
+              <button (click)="moveSelected(0, 3)" title="Move Down (↓)"><i class="fa-solid fa-arrow-down"></i></button>
+              <button (click)="moveSelected(3, 0)" title="Move Right (→)"><i class="fa-solid fa-arrow-right"></i></button>
+            </div>
+
             <div class="actions">
-              <button (click)="rotateSelected(45)" title="Rotate 45°"><i class="fa-solid fa-rotate-right"></i> Rotate</button>
+              <button (click)="rotateSelected(45)" title="Rotate 45° (R)"><i class="fa-solid fa-rotate-right"></i> Rotate</button>
               <button (click)="changeColorSelected()" title="Change Fabric Color"><i class="fa-solid fa-paint-roller"></i> Color</button>
-              <button class="btn-del" (click)="deleteSelected()" title="Delete"><i class="fa-solid fa-trash"></i></button>
+              <button class="btn-del" (click)="deleteSelected()" title="Delete (Del)"><i class="fa-solid fa-trash"></i></button>
             </div>
           </div>
         </main>
@@ -249,10 +269,20 @@ declare var THREE: any;
         align-items: center;
         gap: 10px;
         font-weight: 700;
-        color: var(--primary);
-        font-size: 1rem;
 
-        .project-title { color: #f8fafc; font-weight: 600; }
+        .cube-icon {
+          width: 32px;
+          height: 32px;
+          border-radius: 6px;
+          background: linear-gradient(135deg, var(--primary), var(--secondary));
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          font-size: 1rem;
+        }
+
+        .project-title { color: #f8fafc; font-weight: 700; font-size: 0.95rem; }
       }
 
       .view-toggle {
@@ -563,6 +593,11 @@ declare var THREE: any;
         width: 100%;
         height: 100%;
         display: block;
+        cursor: grab;
+
+        &:active {
+          cursor: grabbing;
+        }
       }
 
       .viewport-hints {
@@ -572,9 +607,10 @@ declare var THREE: any;
         display: flex;
         gap: 8px;
         pointer-events: none;
+        flex-wrap: wrap;
 
         .hint-pill {
-          background: rgba(15, 23, 42, 0.8);
+          background: rgba(15, 23, 42, 0.85);
           backdrop-filter: blur(8px);
           border: 1px solid rgba(255, 255, 255, 0.1);
           color: #94a3b8;
@@ -592,21 +628,62 @@ declare var THREE: any;
         top: 16px;
         left: 50%;
         transform: translateX(-50%);
-        background: rgba(15, 23, 42, 0.95);
+        background: rgba(15, 23, 42, 0.96);
         backdrop-filter: blur(12px);
         border: 1px solid var(--primary);
         border-radius: 999px;
         padding: 6px 18px;
         display: flex;
         align-items: center;
-        gap: 16px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+        gap: 14px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+        z-index: 200;
 
-        .selected-title {
-          font-size: 0.85rem;
-          font-weight: 700;
-          color: #f8fafc;
-          i { color: var(--primary); }
+        .selected-meta {
+          display: flex;
+          flex-direction: column;
+
+          .selected-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #f8fafc;
+            i { color: var(--primary); }
+          }
+
+          .selected-pos {
+            font-size: 0.7rem;
+            color: #94a3b8;
+          }
+        }
+
+        .move-dpad {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          background: #1e293b;
+          padding: 2px 6px;
+          border-radius: 999px;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+
+          button {
+            background: transparent;
+            border: none;
+            color: #cbd5e1;
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.15s ease;
+
+            &:hover {
+              background: var(--primary);
+              color: white;
+            }
+          }
         }
 
         .actions {
@@ -617,7 +694,7 @@ declare var THREE: any;
             background: #1e293b;
             border: 1px solid rgba(255, 255, 255, 0.1);
             color: #cbd5e1;
-            padding: 4px 10px;
+            padding: 5px 12px;
             border-radius: 999px;
             font-size: 0.78rem;
             font-weight: 600;
@@ -739,6 +816,18 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
   private dirLight: any;
   private ambientLight: any;
   private animationFrameId: any;
+  private selectionRingMesh: any;
+
+  // 3D Drag State
+  private isDragging3D = false;
+  private floorPlane: any;
+  private dragOffset = { x: 0, z: 0 };
+  private pointerDownPos = { x: 0, y: 0 };
+
+  // 2D Drag State
+  private isDragging2D = false;
+  private dragItem2D: PlacedFurniture | null = null;
+  private dragOffset2D = { x: 0, y: 0 };
 
   isNightMode = false;
   wallColor = '#E2E8F0';
@@ -794,12 +883,37 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
   ngAfterViewInit() {
     setTimeout(() => {
       this.initThreeJSEngine();
+      this.draw2DCanvas();
     }, 200);
   }
 
   ngOnDestroy() {
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);
+    }
+  }
+
+  // KEYBOARD SHORTCUTS FOR MOVING & ROTATING
+  @HostListener('window:keydown', ['$event'])
+  onKeyDown(e: KeyboardEvent) {
+    if (!this.selectedFurniture) return;
+
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      this.moveSelected(-2, 0);
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      this.moveSelected(2, 0);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      this.moveSelected(0, -2);
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      this.moveSelected(0, 2);
+    } else if (e.key === 'r' || e.key === 'R') {
+      this.rotateSelected(45);
+    } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      this.deleteSelected();
     }
   }
 
@@ -837,6 +951,9 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
       this.controls.target.set(0, 2, 0);
     }
 
+    // Floor Math Plane for 3D Dragging
+    this.floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
     // Lighting
     this.ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
     this.scene.add(this.ambientLight);
@@ -848,8 +965,9 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.dirLight.shadow.mapSize.height = 2048;
     this.scene.add(this.dirLight);
 
-    // Build 3D Room
+    // Build 3D Room & Selection Ring
     this.build3DRoom();
+    this.createSelectionRing();
 
     // Render loop
     const animate = () => {
@@ -867,10 +985,39 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
       this.camera.aspect = w / h;
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(w, h);
+      this.draw2DCanvas();
     });
 
-    // Raycasting for object selection
-    this.renderer.domElement.addEventListener('click', (e: MouseEvent) => this.on3DCanvasClick(e));
+    // 3D POINTER LISTENERS FOR DRAGGING & SELECTION
+    const domEl = this.renderer.domElement;
+    domEl.addEventListener('pointerdown', (e: PointerEvent) => this.on3DPointerDown(e));
+    domEl.addEventListener('pointermove', (e: PointerEvent) => this.on3DPointerMove(e));
+    domEl.addEventListener('pointerup', (e: PointerEvent) => this.on3DPointerUp(e));
+    domEl.addEventListener('pointercancel', (e: PointerEvent) => this.on3DPointerUp(e));
+  }
+
+  createSelectionRing() {
+    const geo = new THREE.RingGeometry(2.0, 2.2, 32);
+    const mat = new THREE.MeshBasicMaterial({ color: 0xff5a5f, side: THREE.DoubleSide });
+    this.selectionRingMesh = new THREE.Mesh(geo, mat);
+    this.selectionRingMesh.rotation.x = -Math.PI / 2;
+    this.selectionRingMesh.position.y = 0.05;
+    this.selectionRingMesh.visible = false;
+    this.scene.add(this.selectionRingMesh);
+  }
+
+  updateSelectionRing() {
+    if (!this.selectionRingMesh) return;
+    if (this.selectedFurniture) {
+      const mesh = this.furnitureMeshMap.get(this.selectedFurniture.instanceId);
+      if (mesh) {
+        this.selectionRingMesh.position.x = mesh.position.x;
+        this.selectionRingMesh.position.z = mesh.position.z;
+        this.selectionRingMesh.visible = true;
+        return;
+      }
+    }
+    this.selectionRingMesh.visible = false;
   }
 
   // 2. 3D PROCEDURAL ROOM GENERATOR
@@ -1070,8 +1217,8 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     // Set position & rotation based on room scale
-    const posX = (placed.x / 100) * (this.roomWidthFt / 2) - this.roomWidthFt / 4;
-    const posZ = (placed.y / 100) * (this.roomLengthFt / 2) - this.roomLengthFt / 4;
+    const posX = (placed.x / 100) * this.roomWidthFt - this.roomWidthFt / 2;
+    const posZ = (placed.y / 100) * this.roomLengthFt - this.roomLengthFt / 2;
     group.position.set(posX, 0, posZ);
     group.rotation.y = (placed.rotation * Math.PI) / 180;
     group.userData = { id: placed.instanceId };
@@ -1086,8 +1233,8 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
       furnitureId: item.id,
       name: item.name,
       category: item.category,
-      x: 40 + Math.random() * 20,
-      y: 40 + Math.random() * 20,
+      x: 35 + Math.random() * 30,
+      y: 35 + Math.random() * 30,
       width: item.defaultWidth,
       height: item.defaultHeight,
       rotation: 0,
@@ -1102,24 +1249,29 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
       const mesh = this.create3DMesh(item, newPlaced);
       this.furnitureMeshMap.set(newPlaced.instanceId, mesh);
       this.scene.add(mesh);
+      this.updateSelectionRing();
     }
 
     this.saveHistoryState();
   }
 
-  // 5. 3D RAYCASTING CLICK LISTENER
-  on3DCanvasClick(event: MouseEvent) {
-    if (!this.renderer || !this.camera || !this.scene) return;
-
+  // 5. INTERACTIVE 3D DRAGGING & SELECTION (POINTER EVENTS)
+  private getRaycaster(event: PointerEvent): any {
     const rect = this.renderer.domElement.getBoundingClientRect();
     const mouse = new THREE.Vector2(
       ((event.clientX - rect.left) / rect.width) * 2 - 1,
       -((event.clientY - rect.top) / rect.height) * 2 + 1
     );
-
     const raycaster = new THREE.Raycaster();
     raycaster.setFromCamera(mouse, this.camera);
+    return { raycaster, mouse };
+  }
 
+  on3DPointerDown(event: PointerEvent) {
+    if (!this.renderer || !this.camera || !this.scene) return;
+    this.pointerDownPos = { x: event.clientX, y: event.clientY };
+
+    const { raycaster } = this.getRaycaster(event);
     const meshes = Array.from(this.furnitureMeshMap.values());
     const intersects = raycaster.intersectObjects(meshes, true);
 
@@ -1133,12 +1285,86 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
         const found = this.placedItems.find(p => p.instanceId === itemId);
         if (found) {
           this.selectedFurniture = found;
+          this.updateSelectionRing();
+
+          // Initialize 3D Drag on Floor Plane
+          const planeIntersect = new THREE.Vector3();
+          if (raycaster.ray.intersectPlane(this.floorPlane, planeIntersect)) {
+            this.dragOffset.x = root.position.x - planeIntersect.x;
+            this.dragOffset.z = root.position.z - planeIntersect.z;
+            this.isDragging3D = true;
+            if (this.controls) this.controls.enabled = false; // Disable camera orbit while dragging object
+          }
         }
+      }
+    } else {
+      // Clicked on empty floor
+      this.isDragging3D = false;
+    }
+  }
+
+  on3DPointerMove(event: PointerEvent) {
+    if (!this.isDragging3D || !this.selectedFurniture || !this.renderer) return;
+
+    const { raycaster } = this.getRaycaster(event);
+    const planeIntersect = new THREE.Vector3();
+
+    if (raycaster.ray.intersectPlane(this.floorPlane, planeIntersect)) {
+      const mesh = this.furnitureMeshMap.get(this.selectedFurniture.instanceId);
+      if (mesh) {
+        let newX = planeIntersect.x + this.dragOffset.x;
+        let newZ = planeIntersect.z + this.dragOffset.z;
+
+        // Clamp inside room
+        const maxLimitX = this.roomWidthFt / 2 - 1.5;
+        const maxLimitZ = this.roomLengthFt / 2 - 1.5;
+        newX = Math.max(-maxLimitX, Math.min(maxLimitX, newX));
+        newZ = Math.max(-maxLimitZ, Math.min(maxLimitZ, newZ));
+
+        mesh.position.x = newX;
+        mesh.position.z = newZ;
+
+        // Convert 3D world coords to percentage (0 - 100)
+        this.selectedFurniture.x = ((newX + this.roomWidthFt / 2) / this.roomWidthFt) * 100;
+        this.selectedFurniture.y = ((newZ + this.roomLengthFt / 2) / this.roomLengthFt) * 100;
+
+        this.updateSelectionRing();
+        this.draw2DCanvas();
       }
     }
   }
 
-  // 6. 3D CONTROLS (Rotate, Delete, Color)
+  on3DPointerUp(event: PointerEvent) {
+    if (this.isDragging3D) {
+      this.isDragging3D = false;
+      if (this.controls) this.controls.enabled = true;
+      this.saveHistoryState();
+    }
+  }
+
+  // 6. PRECISION MOVEMENT CONTROLS (D-PAD & ARROWS)
+  moveSelected(deltaXFt: number, deltaZFt: number) {
+    if (!this.selectedFurniture) return;
+
+    // Update percentage position
+    const deltaXPct = (deltaXFt / this.roomWidthFt) * 100;
+    const deltaZPct = (deltaZFt / this.roomLengthFt) * 100;
+
+    this.selectedFurniture.x = Math.max(5, Math.min(95, this.selectedFurniture.x + deltaXPct));
+    this.selectedFurniture.y = Math.max(5, Math.min(95, this.selectedFurniture.y + deltaZPct));
+
+    const mesh = this.furnitureMeshMap.get(this.selectedFurniture.instanceId);
+    if (mesh) {
+      const posX = (this.selectedFurniture.x / 100) * this.roomWidthFt - this.roomWidthFt / 2;
+      const posZ = (this.selectedFurniture.y / 100) * this.roomLengthFt - this.roomLengthFt / 2;
+      mesh.position.set(posX, 0, posZ);
+      this.updateSelectionRing();
+    }
+
+    this.draw2DCanvas();
+    this.saveHistoryState();
+  }
+
   rotateSelected(degrees: number) {
     if (!this.selectedFurniture) return;
     this.selectedFurniture.rotation = (this.selectedFurniture.rotation + degrees) % 360;
@@ -1164,7 +1390,9 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
       const newMesh = this.create3DMesh(item, this.selectedFurniture);
       this.furnitureMeshMap.set(this.selectedFurniture.instanceId, newMesh);
       this.scene.add(newMesh);
+      this.updateSelectionRing();
     }
+    this.saveHistoryState();
   }
 
   deleteSelected() {
@@ -1181,12 +1409,15 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.placedItems = this.placedItems.filter(p => p.instanceId !== id);
     if (this.selectedFurniture?.instanceId === id) {
       this.selectedFurniture = null;
+      this.updateSelectionRing();
     }
+    this.draw2DCanvas();
     this.saveHistoryState();
   }
 
   selectItem(item: PlacedFurniture) {
     this.selectedFurniture = item;
+    this.updateSelectionRing();
   }
 
   clearAllFurniture() {
@@ -1197,6 +1428,8 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.furnitureMeshMap.clear();
     this.placedItems = [];
     this.selectedFurniture = null;
+    this.updateSelectionRing();
+    this.draw2DCanvas();
     this.saveHistoryState();
   }
 
@@ -1204,11 +1437,13 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
   setWallColor(color: string) {
     this.wallColor = color;
     this.build3DRoom();
+    this.draw2DCanvas();
   }
 
   setFloorMaterial(matId: 'WOOD' | 'TILE' | 'CARPET' | 'CONCRETE') {
     this.floorMaterialType = matId;
     this.build3DRoom();
+    this.draw2DCanvas();
   }
 
   toggleDayNight() {
@@ -1236,6 +1471,7 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   updateRoomDimensions() {
     this.build3DRoom();
+    this.draw2DCanvas();
   }
 
   applyRoomPreset(type: string) {
@@ -1266,19 +1502,17 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
         this.controls.target.set(0, 2, 0);
         this.controls.maxPolarAngle = Math.PI / 2 - 0.05;
       } else if (mode === 'TOP_DOWN') {
-        // Direct Top-Down Bird's Eye View
         this.camera.position.set(0, 34, 0.01);
         this.controls.target.set(0, 0, 0);
         this.controls.maxPolarAngle = Math.PI;
       } else if (mode === 'FRONT') {
-        // Direct Front Wall Elevation View
         this.camera.position.set(0, this.roomHeightFt / 2, 26);
         this.controls.target.set(0, this.roomHeightFt / 2, 0);
         this.controls.maxPolarAngle = Math.PI / 2;
       }
       this.controls.update();
     }
-    this.draw2DCanvas();
+    setTimeout(() => this.draw2DCanvas(), 50);
   }
 
   draw2DCanvas() {
@@ -1386,7 +1620,83 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  // 9. EXPORT & SAVE
+  // 9. 2D INTERACTIVE DRAG HANDLERS
+  on2DMouseDown(e: MouseEvent) {
+    if (!this.canvas2DRef) return;
+    const canvas = this.canvas2DRef.nativeElement;
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const scale = Math.min((canvas.width * 0.7) / this.roomWidthFt, (canvas.height * 0.7) / this.roomLengthFt);
+    const roomPxW = this.roomWidthFt * scale;
+    const roomPxH = this.roomLengthFt * scale;
+    const startX = (canvas.width - roomPxW) / 2;
+    const startY = (canvas.height - roomPxH) / 2;
+
+    for (let i = this.placedItems.length - 1; i >= 0; i--) {
+      const item = this.placedItems[i];
+      const itemW = (item.width || 4) * scale;
+      const itemH = (item.height || 2.5) * scale;
+      const itemX = startX + (item.x / 100) * (roomPxW - itemW);
+      const itemY = startY + (item.y / 100) * (roomPxH - itemH);
+
+      if (mouseX >= itemX && mouseX <= itemX + itemW && mouseY >= itemY && mouseY <= itemY + itemH) {
+        this.selectedFurniture = item;
+        this.dragItem2D = item;
+        this.isDragging2D = true;
+        this.dragOffset2D = { x: mouseX - itemX, y: mouseY - itemY };
+        this.updateSelectionRing();
+        this.draw2DCanvas();
+        return;
+      }
+    }
+  }
+
+  on2DMouseMove(e: MouseEvent) {
+    if (!this.isDragging2D || !this.dragItem2D || !this.canvas2DRef) return;
+
+    const canvas = this.canvas2DRef.nativeElement;
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const scale = Math.min((canvas.width * 0.7) / this.roomWidthFt, (canvas.height * 0.7) / this.roomLengthFt);
+    const roomPxW = this.roomWidthFt * scale;
+    const roomPxH = this.roomLengthFt * scale;
+    const startX = (canvas.width - roomPxW) / 2;
+    const startY = (canvas.height - roomPxH) / 2;
+
+    const itemW = (this.dragItem2D.width || 4) * scale;
+    const itemH = (this.dragItem2D.height || 2.5) * scale;
+
+    const targetX = mouseX - this.dragOffset2D.x - startX;
+    const targetY = mouseY - this.dragOffset2D.y - startY;
+
+    this.dragItem2D.x = Math.max(0, Math.min(100, (targetX / (roomPxW - itemW)) * 100));
+    this.dragItem2D.y = Math.max(0, Math.min(100, (targetY / (roomPxH - itemH)) * 100));
+
+    // Sync 3D mesh
+    const mesh = this.furnitureMeshMap.get(this.dragItem2D.instanceId);
+    if (mesh) {
+      const posX = (this.dragItem2D.x / 100) * this.roomWidthFt - this.roomWidthFt / 2;
+      const posZ = (this.dragItem2D.y / 100) * this.roomLengthFt - this.roomLengthFt / 2;
+      mesh.position.set(posX, 0, posZ);
+      this.updateSelectionRing();
+    }
+
+    this.draw2DCanvas();
+  }
+
+  on2DMouseUp(e: MouseEvent) {
+    if (this.isDragging2D) {
+      this.isDragging2D = false;
+      this.dragItem2D = null;
+      this.saveHistoryState();
+    }
+  }
+
+  // 10. EXPORT & SAVE
   exportStudioSnapshot() {
     if (this.renderer) {
       const dataUrl = this.renderer.domElement.toDataURL('image/png');
@@ -1435,6 +1745,7 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
       this.furnitureMeshMap.set(p.instanceId, mesh);
       this.scene.add(mesh);
     });
+    this.updateSelectionRing();
   }
 
   loadInitialTemplate() {
