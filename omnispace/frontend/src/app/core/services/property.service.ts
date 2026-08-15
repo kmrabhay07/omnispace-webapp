@@ -15,9 +15,9 @@ export class PropertyService {
 
   private mockProperties: Property[] = MOCK_PROPERTIES;
 
-  private propertiesSignal = signal<Property[]>(this.getInitialCombinedList());
+  propertiesSignal = signal<Property[]>(this.getInitialCombinedList());
 
-  private getInitialCombinedList(): Property[] {
+  getInitialCombinedList(): Property[] {
     try {
       const local = localStorage.getItem(this.localKey);
       const userProps: Property[] = local ? JSON.parse(local) : [];

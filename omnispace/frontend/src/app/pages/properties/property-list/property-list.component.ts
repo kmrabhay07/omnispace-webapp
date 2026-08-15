@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -298,9 +298,10 @@ import { PropertyCardComponent } from '../../../shared/components/property-card/
 export class PropertyListComponent implements OnInit {
   propertyService = inject(PropertyService);
   route = inject(ActivatedRoute);
+  cdr = inject(ChangeDetectorRef);
 
-  allProperties: Property[] = [];
-  filteredProperties: Property[] = [];
+  allProperties: Property[] = this.propertyService.getInitialCombinedList();
+  filteredProperties: Property[] = [...this.allProperties];
 
   selectedType = '';
   selectedCategory = '';
@@ -310,6 +311,8 @@ export class PropertyListComponent implements OnInit {
   sortBy = 'newest';
 
   ngOnInit() {
+    this.applyFilters();
+
     this.route.queryParams.subscribe(params => {
       if (params['type']) this.selectedType = params['type'];
       if (params['category']) this.selectedCategory = params['category'];
@@ -321,8 +324,11 @@ export class PropertyListComponent implements OnInit {
 
   fetchProperties() {
     this.propertyService.getProperties().subscribe(props => {
-      this.allProperties = props;
+      if (props && props.length > 0) {
+        this.allProperties = props;
+      }
       this.applyFilters();
+      this.cdr.markForCheck();
     });
   }
 
@@ -360,6 +366,7 @@ export class PropertyListComponent implements OnInit {
     }
 
     this.filteredProperties = result;
+    this.cdr.markForCheck();
   }
 
   resetFilters() {
