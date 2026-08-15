@@ -132,16 +132,16 @@ export class LoginComponent implements OnInit {
   }
 
   onLogin() {
-    if (!this.email || !this.password) return;
+    if (!this.email || !this.password) {
+      alert('Please enter your email and password!');
+      return;
+    }
 
-    this.auth.setUser({
-      id: 'u-' + Date.now(),
-      name: this.name || this.email.split('@')[0],
+    this.auth.login({
       email: this.email,
-      role: 'USER',
-      token: 'mock-jwt-token-xyz'
+      password: this.password
+    }).subscribe(() => {
+      this.router.navigateByUrl(this.returnUrl);
     });
-
-    this.router.navigateByUrl(this.returnUrl);
   }
 }

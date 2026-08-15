@@ -132,16 +132,18 @@ export class RegisterComponent implements OnInit {
   }
 
   onRegister() {
-    if (!this.name || !this.email || !this.password) return;
+    if (!this.name || !this.email || !this.password) {
+      alert('Please enter your name, email and password!');
+      return;
+    }
 
-    this.auth.setUser({
-      id: 'u-' + Date.now(),
+    this.auth.register({
       name: this.name,
       email: this.email,
-      role: 'USER',
-      token: 'mock-jwt-token-new'
+      password: this.password
+    }).subscribe(() => {
+      alert('🎉 Account created successfully!');
+      this.router.navigateByUrl(this.returnUrl);
     });
-
-    this.router.navigateByUrl(this.returnUrl);
   }
 }
