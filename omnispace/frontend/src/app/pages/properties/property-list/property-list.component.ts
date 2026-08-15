@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -307,6 +307,7 @@ export class PropertyListComponent implements OnInit {
   propertyService = inject(PropertyService);
   route = inject(ActivatedRoute);
   cdr = inject(ChangeDetectorRef);
+  ngZone = inject(NgZone);
 
   isLoading = true;
   allProperties: Property[] = this.propertyService.propertiesSignal();
@@ -338,11 +339,23 @@ export class PropertyListComponent implements OnInit {
     if (this.allProperties.length === 0) {
       this.isLoading = true;
     }
-    this.propertyService.getProperties().subscribe(props => {
-      this.isLoading = false;
-      this.allProperties = props || [];
-      this.applyFilters();
-      this.cdr.markForCheck();
+    this.propertyService.getProperties().subscribe({
+      next: (props) => {
+        this.ngZone.run(() => {
+          this.isLoading = false;
+          this.allProperties = props || [];
+          this.applyFilters();
+          this.cdr.markForCheck();
+        });
+      },
+      error: (err) => {
+        this.ngZone.run(() => {
+          this.isLoading = false;
+          this.allProperties = [];
+          this.applyFilters();
+          this.cdr.markForCheck();
+        });
+      }
     });
   }
 
