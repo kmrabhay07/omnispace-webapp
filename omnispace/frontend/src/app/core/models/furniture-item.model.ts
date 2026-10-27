@@ -23,4 +23,5 @@ export interface PlacedFurniture {
   color: string;
   viewMode: 'TOP_DOWN' | 'FRONT';
   iconSvg?: string;
+  imageData?: string;
 }

@@ -12,6 +12,7 @@ export interface DesignProject {
   floorColor: string;
   floorTexture: 'WOOD' | 'TILE' | 'CARPET' | 'CONCRETE';
   placedFurniture: PlacedFurniture[];
+  roomPhoto?: string;
   createdAt?: string;
   updatedAt?: string;
 }

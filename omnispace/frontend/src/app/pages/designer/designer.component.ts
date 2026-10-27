@@ -1,4 +1,4 @@
-import { Component, ElementRef, ViewChild, AfterViewInit, inject, OnInit, OnDestroy, HostListener } from '@angular/core';
+import { Component, ElementRef, ViewChild, AfterViewInit, inject, OnInit, OnDestroy, HostListener, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -61,7 +61,8 @@ declare var THREE: any;
       <div class="studio-body">
         <!-- LEFT SIDEBAR: 3D FURNITURE & MATERIAL PALETTE -->
         <aside class="left-sidebar">
-          <div class="sidebar-tabs">
+          <div class="studio-intro"><span>YOUR CREATIVE SPACE</span><h2>Design studio</h2><p>Bring your room and ideas together.</p></div>
+          <div class="sidebar-tabs"><button [class.active]="activeTab === 'PHOTOS'" (click)="activeTab = 'PHOTOS'"><i class="fa-solid fa-image"></i> Photos</button>
             <button [class.active]="activeTab === 'FURNITURE'" (click)="activeTab = 'FURNITURE'">
               <i class="fa-solid fa-couch"></i> 3D Furniture
             </button>
@@ -73,6 +74,19 @@ declare var THREE: any;
             </button>
           </div>
 
+          <div class="tab-content photo-panel" *ngIf="activeTab === 'PHOTOS'">
+            <div class="photo-heading"><span>01</span><div><h3>Your room</h3><p>Use a photo as the back wall of your 3D space.</p></div></div>
+            <label class="upload-card" for="room-upload"><img *ngIf="roomPhoto" [src]="roomPhoto" alt="Room reference"><i *ngIf="!roomPhoto" class="fa-solid fa-cloud-arrow-up"></i><strong>{{ roomPhoto ? 'Replace room photo' : 'Upload a room photo' }}</strong><small>JPG, PNG or WebP · up to 10 MB</small></label>
+            <input id="room-upload" class="file-input" type="file" accept="image/jpeg,image/png,image/webp" (change)="uploadRoom($event)">
+            <button *ngIf="roomPhoto" class="text-button" (click)="removeRoomPhoto()">Remove room photo</button>
+            <div class="photo-divider"></div>
+            <div class="photo-heading"><span>02</span><div><h3>Your furniture</h3><p>Add a sofa, table or decor photo to the scene.</p></div></div>
+            <label class="upload-card furniture-upload" for="furniture-upload"><i class="fa-solid fa-plus"></i><strong>Add furniture photo</strong><small>Transparent PNG works best</small></label>
+            <input id="furniture-upload" class="file-input" type="file" accept="image/jpeg,image/png,image/webp" (change)="uploadFurniture($event)">
+            <p class="photo-note">Photos appear as flat panels, not reconstructed 3D objects. Drag and rotate them in the room.</p>
+            <p class="photo-error" role="alert" *ngIf="photoError">{{ photoError }}</p>
+            <button class="restore-button" (click)="restoreLastDesign()">Restore last saved design</button><p class="photo-note">Designs are saved in this browser only.</p>
+          </div>
           <!-- FURNITURE TAB CONTENT -->
           <div class="tab-content" *ngIf="activeTab === 'FURNITURE'">
             <div class="category-pills">
@@ -201,8 +215,10 @@ declare var THREE: any;
             </div>
 
             <div class="actions">
+              <button *ngIf="selectedFurniture.imageData" (click)="resizePhoto(0.8)" title="Make photo smaller">− Size</button>
+              <button *ngIf="selectedFurniture.imageData" (click)="resizePhoto(1.25)" title="Make photo larger">+ Size</button>
               <button (click)="rotateSelected(45)" title="Rotate 45° (R)"><i class="fa-solid fa-rotate-right"></i> Rotate</button>
-              <button (click)="changeColorSelected()" title="Change Fabric Color"><i class="fa-solid fa-paint-roller"></i> Color</button>
+              <button *ngIf="!selectedFurniture.imageData" (click)="changeColorSelected()" title="Change Fabric Color"><i class="fa-solid fa-paint-roller"></i> Color</button>
               <button class="btn-del" (click)="deleteSelected()" title="Delete (Del)"><i class="fa-solid fa-trash"></i></button>
             </div>
           </div>
@@ -253,6 +269,29 @@ declare var THREE: any;
       font-family: var(--font-sans);
     }
 
+    .studio-intro { padding: 24px 20px 17px; background: linear-gradient(135deg, #182744, #152337); }
+    .studio-intro span { color: #8ea6cf; letter-spacing: .16em; font-size: 10px; font-weight: 800; }
+    .studio-intro h2 { color: white; font-size: 23px; margin: 6px 0 2px; }
+    .studio-intro p { color: #aebbd1; font-size: 12px; margin: 0; }
+    .sidebar-tabs { flex-wrap: wrap; }
+    .photo-heading { display: flex; gap: 12px; margin: 8px 0 14px; }
+    .photo-heading span { color: #ffac9f; font-weight: 800; font-size: 12px; padding: 6px; background: #433141; border-radius: 8px; height: fit-content; }
+    .photo-heading h3 { margin: 0 0 4px; color: white; font-size: 15px; }
+    .photo-heading p { margin: 0; color: #a8b6ce; font-size: 12px; line-height: 1.5; }
+    .upload-card { min-height: 145px; border: 1px dashed #647a9c; border-radius: 14px; background: #18263d; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 8px; cursor: pointer; overflow: hidden; padding: 16px; text-align: center; }
+    .upload-card:hover { border-color: #ff8b83; background: #20314b; }
+    .upload-card img { width: 100%; max-height: 130px; object-fit: cover; border-radius: 8px; }
+    .upload-card i { color: #ffada1; font-size: 22px; }
+    .upload-card strong { font-size: 13px; color: white; }
+    .upload-card small { color: #a2b1ca; font-size: 11px; }
+    .furniture-upload { min-height: 120px; }
+    .file-input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+    .text-button { color: #ffada1; background: none; padding: 10px 0; cursor: pointer; }
+    .photo-divider { height: 1px; background: #334155; margin: 22px 0; }
+    .photo-note { color: #a9b8cf; font-size: 12px; line-height: 1.6; }
+    .photo-error { color: #fca5a5; font-size: 12px; }
+    .restore-button { width: 100%; padding: 11px; border: 1px solid #526782; border-radius: 9px; background: #23344d; color: white; cursor: pointer; }
+    @media (max-width: 900px) { .designer-layout { height: auto; min-height: 100vh; overflow: visible; } .studio-body { flex-wrap: wrap; } .left-sidebar, .right-sidebar { width: 100% !important; max-height: 420px; } .canvas-viewport { flex: 1 0 100%; min-height: 460px; } .designer-toolbar { height: auto; flex-wrap: wrap; gap: 10px; padding: 12px; } }
     /* TOP TOOLBAR */
     .designer-toolbar {
       height: 60px;
@@ -793,7 +832,10 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
   route = inject(ActivatedRoute);
 
   viewMode: '3D' | 'TOP_DOWN' | 'FRONT' = '3D';
-  activeTab: 'FURNITURE' | 'PAINT' | 'ROOM' = 'FURNITURE';
+  activeTab: 'PHOTOS' | 'FURNITURE' | 'PAINT' | 'ROOM' = 'PHOTOS';
+  roomPhoto = '';
+  photoError = '';
+  private cdr = inject(ChangeDetectorRef);
   selectedCategory = 'Living Room';
   categories = ['Living Room', 'Bedroom', 'Kitchen', 'Bathroom', 'Office', 'Decor'];
 
@@ -893,10 +935,73 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  async readPhoto(event: Event): Promise<{ data: string; width: number; height: number; name: string } | null> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return null;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024) { this.photoError = 'Choose a JPG, PNG or WebP image smaller than 10 MB.'; return null; }
+    try {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      try {
+        await new Promise<void>((resolve, reject) => { img.onload = () => resolve(); img.onerror = () => reject(); img.src = url; });
+        const scale = Math.min(1, 1000 / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.width * scale)); canvas.height = Math.max(1, Math.round(img.height * scale));
+        const ctx = canvas.getContext('2d'); if (!ctx) throw new Error('Canvas unavailable');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const data = canvas.toDataURL('image/webp', 0.8);
+        if (data.length > 700000) throw new Error('Image too large');
+        this.photoError = '';
+        return { data, width: img.width, height: img.height, name: file.name.replace(/\.[^.]+$/, '') };
+      } finally { URL.revokeObjectURL(url); }
+    } catch { this.photoError = 'Could not process this image. Try a smaller or different photo.'; return null; }
+    finally { this.cdr.markForCheck(); }
+  }
+  async uploadRoom(event: Event) {
+    const photo = await this.readPhoto(event); if (!photo) return;
+    this.roomPhoto = photo.data; if (this.scene) this.build3DRoom(); this.cdr.markForCheck();
+  }
+  resizePhoto(factor: number) {
+    const item = this.selectedFurniture;
+    if (!item?.imageData || !this.scene) return;
+    const width = Math.max(1, Math.min(10, item.width * factor));
+    const ratio = width / item.width;
+    item.width = width; item.height *= ratio;
+    const oldMesh = this.furnitureMeshMap.get(item.instanceId);
+    if (oldMesh) this.scene.remove(oldMesh);
+    const mesh = this.create3DMesh(this.catalog[0], item);
+    this.furnitureMeshMap.set(item.instanceId, mesh); this.scene.add(mesh);
+    this.updateSelectionRing(); this.saveHistoryState();
+  }
+  removeRoomPhoto() { this.roomPhoto = ''; if (this.scene) this.build3DRoom(); }
+  async uploadFurniture(event: Event) {
+    if (this.placedItems.filter(p => p.imageData).length >= 5) { this.photoError = 'You can add up to five furniture photos per design.'; (event.target as HTMLInputElement).value = ''; return; }
+    const photo = await this.readPhoto(event); if (!photo) return;
+    const width = 4, height = Math.max(1, Math.min(6, width * photo.height / photo.width));
+    const item: PlacedFurniture = { instanceId: 'photo-' + crypto.randomUUID(), furnitureId: 'photo', name: photo.name || 'Furniture photo', category: 'Decor', x: 50, y: 50, width, height, rotation: 0, color: '#ffffff', viewMode: 'TOP_DOWN', imageData: photo.data };
+    this.placedItems.push(item); this.selectedFurniture = item;
+    if (this.scene) { const mesh = this.create3DMesh(this.catalog[0], item); this.furnitureMeshMap.set(item.instanceId, mesh); this.scene.add(mesh); this.updateSelectionRing(); }
+    this.saveHistoryState(); this.cdr.markForCheck();
+  }
+  restoreLastDesign() {
+    this.designService.getSavedDesigns().subscribe(projects => {
+      const project = projects.find(p => p.id !== 'demo-design-1');
+      if (!project) { this.photoError = 'No saved design found in this browser yet.'; return; }
+      this.currentProject = { ...project }; this.roomPhoto = project.roomPhoto || ''; this.roomWidthFt = project.roomWidth; this.roomLengthFt = project.roomHeight;
+      this.wallColor = project.wallColor; this.floorMaterialType = project.floorTexture;
+      this.furnitureMeshMap.forEach(mesh => this.scene?.remove(mesh)); this.furnitureMeshMap.clear();
+      this.placedItems = JSON.parse(JSON.stringify(project.placedFurniture)); this.selectedFurniture = null;
+      if (this.scene) { this.build3DRoom(); this.rebuildAllMeshes(); }
+      this.historyStack = []; this.saveHistoryState(); this.photoError = ''; this.cdr.markForCheck();
+    });
+  }
+
   // KEYBOARD SHORTCUTS FOR MOVING & ROTATING
   @HostListener('window:keydown', ['$event'])
   onKeyDown(e: KeyboardEvent) {
-    if (!this.selectedFurniture) return;
+    if (!this.selectedFurniture || /^(INPUT|TEXTAREA|SELECT)$/.test((e.target as HTMLElement)?.tagName)) return;
 
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
@@ -968,6 +1073,7 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
     // Build 3D Room & Selection Ring
     this.build3DRoom();
     this.createSelectionRing();
+    if (this.placedItems.length) this.rebuildAllMeshes();
 
     // Render loop
     const animate = () => {
@@ -1054,7 +1160,13 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
     const wallMat = new THREE.MeshStandardMaterial({ color: wallColorHex, roughness: 0.85 });
 
     const backWallGeo = new THREE.PlaneGeometry(w, h);
-    const backWall = new THREE.Mesh(backWallGeo, wallMat);
+    let backMaterial = wallMat;
+    if (this.roomPhoto) {
+      const texture = new THREE.TextureLoader().load(this.roomPhoto);
+      texture.encoding = THREE.sRGBEncoding;
+      backMaterial = new THREE.MeshBasicMaterial({ map: texture });
+    }
+    const backWall = new THREE.Mesh(backWallGeo, backMaterial);
     backWall.position.set(0, h / 2, -l / 2);
     backWall.receiveShadow = true;
     this.roomMeshGroup.add(backWall);
@@ -1080,6 +1192,17 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
   // 3. 3D PROCEDURAL FURNITURE MESH BUILDER
   create3DMesh(item: FurnitureItem, placed: PlacedFurniture): any {
     const group = new THREE.Group();
+    if (placed.imageData) {
+      const texture = new THREE.TextureLoader().load(placed.imageData);
+      texture.encoding = THREE.sRGBEncoding;
+      const panel = new THREE.Mesh(new THREE.PlaneGeometry(placed.width || 4, placed.height || 3), new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide, alphaTest: 0.05 }));
+      panel.position.y = (placed.height || 3) / 2;
+      group.add(panel);
+      group.position.set((placed.x / 100) * this.roomWidthFt - this.roomWidthFt / 2, 0, (placed.y / 100) * this.roomLengthFt - this.roomLengthFt / 2);
+      group.rotation.y = placed.rotation * Math.PI / 180;
+      group.userData = { id: placed.instanceId };
+      return group;
+    }
     const name = item.name.toLowerCase();
 
     // Default Materials
@@ -1709,12 +1832,18 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   saveProject() {
     this.currentProject.placedFurniture = this.placedItems;
+    this.currentProject.roomPhoto = this.roomPhoto;
+    this.currentProject.roomWidth = this.roomWidthFt;
+    this.currentProject.roomHeight = this.roomLengthFt;
     this.currentProject.floorTexture = this.floorMaterialType;
     this.currentProject.wallColor = this.wallColor;
 
-    this.designService.saveDesign(this.currentProject).subscribe(() => {
-      alert('🎉 3D Interior Design Project Saved Successfully!');
-    });
+    try {
+      this.designService.saveDesign(this.currentProject).subscribe(() => alert('Design saved in this browser. Use Restore last saved design to reopen it.'));
+    } catch {
+      this.photoError = 'Could not save: browser storage may be full. Remove some photos and try again.';
+      this.activeTab = 'PHOTOS';
+    }
   }
 
   saveHistoryState() {
@@ -1733,14 +1862,12 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   rebuildAllMeshes() {
-    this.placedItems.forEach(p => {
-      const oldMesh = this.furnitureMeshMap.get(p.instanceId);
-      if (oldMesh && this.scene) this.scene.remove(oldMesh);
-    });
+    this.furnitureMeshMap.forEach(mesh => { if (this.scene) this.scene.remove(mesh); });
     this.furnitureMeshMap.clear();
 
     this.placedItems.forEach(p => {
       const item = this.catalog.find(c => c.id === p.furnitureId) || this.catalog[0];
+      if (!item && !p.imageData) return;
       const mesh = this.create3DMesh(item, p);
       this.furnitureMeshMap.set(p.instanceId, mesh);
       this.scene.add(mesh);

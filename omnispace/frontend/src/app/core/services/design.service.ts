@@ -105,7 +105,8 @@ export class DesignService {
     const current = this.projectsSignal();
     let updated: DesignProject[];
     if (project.id) {
-      updated = current.map(p => p.id === project.id ? { ...project, updatedAt: new Date().toISOString() } : p);
+      const saved = { ...project, updatedAt: new Date().toISOString() };
+      updated = [saved, ...current.filter(p => p.id !== project.id)];
     } else {
       const newProj = {
         ...project,
