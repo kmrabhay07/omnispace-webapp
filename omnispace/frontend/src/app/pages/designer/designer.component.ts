@@ -20,19 +20,19 @@ declare var THREE: any;
       <header class="designer-toolbar">
         <div class="brand-sub">
           <div class="cube-icon"><i class="fa-solid fa-cube"></i></div>
-          <span class="project-title">{{ currentProject.name }}</span>
+          <div class="brand-copy"><span class="brand-eyebrow">OMNISPACE / STUDIO</span><span class="project-title">{{ currentProject.name }}</span></div>
         </div>
 
         <!-- 3D vs 2D View Switcher -->
         <div class="view-toggle">
           <button [class.active]="viewMode === '3D'" (click)="setViewMode('3D')">
-            <i class="fa-solid fa-cube"></i> 3D Walkthrough
+            <i class="fa-solid fa-cube"></i> 3D View
           </button>
           <button [class.active]="viewMode === 'TOP_DOWN'" (click)="setViewMode('TOP_DOWN')">
-            <i class="fa-solid fa-layer-group"></i> 2D Floor Plan
+            <i class="fa-solid fa-layer-group"></i> Floor plan
           </button>
           <button [class.active]="viewMode === 'FRONT'" (click)="setViewMode('FRONT')">
-            <i class="fa-solid fa-vr-cardboard"></i> Front Elevation
+            <i class="fa-solid fa-vr-cardboard"></i> Elevation
           </button>
         </div>
 
@@ -43,7 +43,7 @@ declare var THREE: any;
           <button class="tool-btn" (click)="toggleDayNight()" [class.active]="isNightMode" title="Toggle Day/Night Lighting">
             <i [class]="isNightMode ? 'fa-solid fa-moon' : 'fa-solid fa-sun'"></i> {{ isNightMode ? 'Night Mode' : 'Daylight' }}
           </button>
-          <button class="tool-btn" (click)="undo()" [disabled]="historyIndex <= 0" title="Undo (Ctrl+Z)">
+          <button class="tool-btn" (click)="undo()" [disabled]="historyIndex <= 0" title="Undo last change">
             <i class="fa-solid fa-rotate-left"></i> Undo
           </button>
           <button class="tool-btn btn-danger" (click)="clearAllFurniture()" title="Clear Room">
@@ -61,7 +61,7 @@ declare var THREE: any;
       <div class="studio-body">
         <!-- LEFT SIDEBAR: 3D FURNITURE & MATERIAL PALETTE -->
         <aside class="left-sidebar">
-          <div class="studio-intro"><span>YOUR CREATIVE SPACE</span><h2>Design studio</h2><p>Bring your room and ideas together.</p></div>
+          <div class="studio-intro"><span>YOUR CREATIVE SPACE</span><h2>Make room for ideas<span class="intro-dot">.</span></h2><p>Build a space that feels like you.</p></div>
           <div class="sidebar-tabs"><button [class.active]="activeTab === 'PHOTOS'" (click)="activeTab = 'PHOTOS'"><i class="fa-solid fa-image"></i> Photos</button>
             <button [class.active]="activeTab === 'FURNITURE'" (click)="activeTab = 'FURNITURE'">
               <i class="fa-solid fa-couch"></i> 3D Furniture
@@ -75,21 +75,21 @@ declare var THREE: any;
           </div>
 
           <div class="tab-content photo-panel" *ngIf="activeTab === 'PHOTOS'">
-            <div class="photo-heading"><span>01</span><div><h3>Your room</h3><p>Use a photo as the back wall of your 3D space.</p></div></div>
+            <div class="section-kicker">GET STARTED <span>01 / 02</span></div><div class="photo-heading"><span>01</span><div><h3>Start with your room</h3><p>Add a photo to use as the back wall of your 3D space.</p></div></div>
             <label class="upload-card" for="room-upload"><img *ngIf="roomPhoto" [src]="roomPhoto" alt="Room reference"><i *ngIf="!roomPhoto" class="fa-solid fa-cloud-arrow-up"></i><strong>{{ roomPhoto ? 'Replace room photo' : 'Upload a room photo' }}</strong><small>JPG, PNG or WebP · up to 10 MB</small></label>
             <input id="room-upload" class="file-input" type="file" accept="image/jpeg,image/png,image/webp" (change)="uploadRoom($event)">
             <button *ngIf="roomPhoto" class="text-button" (click)="removeRoomPhoto()">Remove room photo</button>
             <div class="photo-divider"></div>
-            <div class="photo-heading"><span>02</span><div><h3>Your furniture</h3><p>Add a sofa, table or decor photo to the scene.</p></div></div>
+            <div class="photo-heading"><span>02</span><div><h3>Bring in your furniture</h3><p>Add a sofa, table or decor photo to the scene.</p></div></div>
             <label class="upload-card furniture-upload" for="furniture-upload"><i class="fa-solid fa-plus"></i><strong>Add furniture photo</strong><small>Transparent PNG works best</small></label>
             <input id="furniture-upload" class="file-input" type="file" accept="image/jpeg,image/png,image/webp" (change)="uploadFurniture($event)">
-            <p class="photo-note">Photos appear as flat panels, not reconstructed 3D objects. Drag and rotate them in the room.</p>
-            <p class="photo-error" role="alert" *ngIf="photoError">{{ photoError }}</p>
+            <p class="photo-note photo-info"><i class="fa-solid fa-circle-info"></i> Photos appear as flat panels, not 3D models. Select one to move, rotate or resize it.</p>
+            <p class="photo-error" role="alert" *ngIf="photoError">{{ photoError }}</p><p class="photo-success" role="status" *ngIf="saveMessage">{{ saveMessage }}</p>
             <button class="restore-button" (click)="restoreLastDesign()">Restore last saved design</button><p class="photo-note">Designs are saved in this browser only.</p>
           </div>
           <!-- FURNITURE TAB CONTENT -->
           <div class="tab-content" *ngIf="activeTab === 'FURNITURE'">
-            <div class="category-pills">
+            <div class="panel-heading"><span>EXPLORE THE COLLECTION</span><h3>Find your furniture</h3><p>Choose a piece to add it to your room.</p></div><div class="category-pills">
               <button
                 *ngFor="let cat of categories"
                 [class.active]="selectedCategory === cat"
@@ -178,6 +178,7 @@ declare var THREE: any;
 
         <!-- 3D / 2D CANVAS VIEWPORT -->
         <main class="canvas-viewport" #viewportContainer>
+          <div class="viewport-label" *ngIf="!selectedFurniture"><span class="live-dot"></span><div><strong>{{ viewMode === '3D' ? 'Your space in 3D' : (viewMode === 'TOP_DOWN' ? 'Floor plan' : 'Elevation') }}</strong><small>{{ roomWidthFt }} × {{ roomLengthFt }} ft · {{ placedItems.length }} pieces</small></div></div>
           <!-- THREE.JS 3D CANVAS CONTAINER -->
           <div class="threejs-canvas-wrapper" #threeCanvasContainer [style.display]="viewMode === '3D' ? 'block' : 'none'"></div>
 
@@ -203,7 +204,7 @@ declare var THREE: any;
           <div class="selected-item-toolbar" *ngIf="selectedFurniture">
             <div class="selected-meta">
               <span class="selected-title"><i class="fa-solid fa-couch"></i> {{ selectedFurniture.name }}</span>
-              <span class="selected-pos">{{ selectedFurniture.x | number:'1.0-0' }}', {{ selectedFurniture.y | number:'1.0-0' }}'</span>
+              <span class="selected-pos">{{ selectedFurniture.imageData ? 'Photo panel' : '3D object' }}</span>
             </div>
 
             <!-- Precision Direction Pad -->
@@ -227,7 +228,7 @@ declare var THREE: any;
         <!-- RIGHT SIDEBAR: PLACED OBJECTS & INSPECTOR -->
         <aside class="right-sidebar">
           <div class="inspector-header">
-            <h3><i class="fa-solid fa-list-check"></i> Placed Objects ({{ placedItems.length }})</h3>
+            <div class="inspector-title"><div><span>YOUR SPACE</span><h3>Placed pieces</h3></div><b>{{ placedItems.length }}</b></div><p>Select an item to edit it.</p>
           </div>
 
           <div class="placed-list" *ngIf="placedItems.length > 0; else emptyPlaced">
@@ -237,12 +238,12 @@ declare var THREE: any;
               [class.active]="selectedFurniture?.instanceId === item.instanceId"
               (click)="selectItem(item)"
             >
-              <div class="icon-circle"><i [class]="getCategoryIcon(item.category)"></i></div>
+              <div class="icon-circle"><img *ngIf="item.imageData" [src]="item.imageData" alt=""><i *ngIf="!item.imageData" [class]="getCategoryIcon(item.category)"></i></div>
               <div class="name-box">
                 <div class="item-name">{{ item.name }}</div>
-                <div class="item-sub">{{ item.x | number:'1.0-0' }}', {{ item.y | number:'1.0-0' }}' • {{ item.rotation }}°</div>
+                <div class="item-sub">{{ item.imageData ? 'Photo' : '3D object' }} · {{ item.rotation }}°</div>
               </div>
-              <button class="remove-btn" (click)="$event.stopPropagation(); deleteItem(item.instanceId)">
+              <button class="remove-btn" [attr.aria-label]="'Remove ' + item.name" (click)="$event.stopPropagation(); deleteItem(item.instanceId)">
                 <i class="fa-solid fa-trash-can"></i>
               </button>
             </div>
@@ -251,7 +252,7 @@ declare var THREE: any;
           <ng-template #emptyPlaced>
             <div class="empty-state">
               <i class="fa-solid fa-couch"></i>
-              <p>No 3D furniture placed yet.<br>Click items from the catalog on the left to stage this room!</p>
+              <p>Your room is a blank canvas.<br>Add a photo or choose a piece from the collection.</p>
             </div>
           </ng-template>
         </aside>
@@ -820,6 +821,83 @@ declare var THREE: any;
         p { font-size: 0.82rem; line-height: 1.5; margin: 0; }
       }
     }
+
+    /* Workspace visual system */
+    .designer-layout { background: #0b1020; font-family: 'DM Sans', sans-serif; }
+    .designer-toolbar { min-height: 78px; height: auto; gap: 18px; padding: 14px 22px; background: #111a2d; }
+    .designer-toolbar .brand-sub { min-width: 210px; }
+    .designer-toolbar .brand-sub .cube-icon { width: 40px; height: 40px; border-radius: 13px; background: linear-gradient(145deg,#fa887e,#d96683); box-shadow: 0 5px 18px #f47b8240; }
+    .brand-copy { display: flex; flex-direction: column; gap: 3px; }
+    .brand-eyebrow, .section-kicker, .panel-heading span, .inspector-title span { color: #8796b4; font-size: 9px; font-weight: 800; letter-spacing: .15em; }
+    .designer-toolbar .brand-sub .project-title { color: #f7f8fc; font-size: 13px; max-width: 210px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .designer-toolbar .view-toggle { background: #0b1323; border: 1px solid #27344b; padding: 4px; border-radius: 12px; }
+    .designer-toolbar .view-toggle button { padding: 9px 11px; font-size: 12px; white-space: nowrap; }
+    .designer-toolbar .view-toggle button.active { background: #f0807c; box-shadow: 0 3px 12px #f0807c44; }
+    .designer-toolbar .toolbar-actions { flex-wrap: wrap; justify-content: flex-end; }
+    .designer-toolbar .toolbar-actions .tool-btn { border-radius: 9px; min-height: 36px; background: #202c42; }
+    .designer-toolbar .toolbar-actions .btn-export { background: #202c42; border-color: #35445c; }
+    .designer-toolbar .toolbar-actions .btn-save { min-height: 36px; border-radius: 9px; white-space: nowrap; }
+    .studio-body { min-height: 0; }
+    .left-sidebar { width: 330px; min-width: 0; background: #111a2d; }
+    .studio-intro { background: linear-gradient(140deg,#253653,#19263c); padding: 24px 22px; }
+    .studio-intro h2 { max-width: 250px; font-size: 25px; line-height: 1.15; letter-spacing: -.035em; }
+    .studio-intro .intro-dot { color: #ff8e82; font-size: inherit; letter-spacing: 0; }
+    .studio-intro p { margin-top: 9px; }
+    .left-sidebar .sidebar-tabs { display: grid; grid-template-columns: 1fr 1fr; padding: 9px; gap: 4px; }
+    .left-sidebar .sidebar-tabs button { justify-content: flex-start; border-radius: 9px; border: 0; padding: 10px; font-size: 11px; }
+    .left-sidebar .sidebar-tabs button.active { background: #2d354a; color: #ffaaa0; border: 0; }
+    .left-sidebar .tab-content { padding: 20px; }
+    .section-kicker { display: flex; justify-content: space-between; margin-bottom: 19px; }
+    .section-kicker span { color: #ffafa0; }
+    .photo-heading { margin-bottom: 15px; }
+    .photo-heading span { background: #3e3443; border-radius: 10px; padding: 8px; }
+    .photo-heading h3, .panel-heading h3 { font-size: 15px; color: #f4f6fc; }
+    .upload-card { border-radius: 15px; background: linear-gradient(145deg,#1b2b44,#1b253b); border-color: #536783; }
+    button:focus-visible, input:focus-visible { outline: 2px solid #ffb2a9; outline-offset: 3px; }
+    .photo-info { padding: 12px; background: #1b2940; border: 1px solid #293c59; border-radius: 10px; }
+    .photo-info i { color: #f7a296; margin-right: 4px; }
+    .photo-success { font-size: 12px; color: #a7e9c1; line-height: 1.5; }
+    .panel-heading { margin-bottom: 18px; }
+    .panel-heading h3 { margin: 7px 0; }
+    .panel-heading p { font-size: 12px; color: #a8b6ce; line-height: 1.5; }
+    .canvas-viewport { min-width: 0; background: radial-gradient(circle at 50% 38%, #1d2d48, #0c1426 74%); }
+    .viewport-label { position: absolute; z-index: 2; top: 22px; left: 22px; display: flex; align-items: flex-start; gap: 10px; pointer-events: none; padding: 10px 13px; border: 1px solid #ffffff1a; border-radius: 12px; background: #111b30d9; }
+    .viewport-label strong, .viewport-label small { display: block; }
+    .viewport-label strong { color: #f8fafc; font-size: 12px; }
+    .viewport-label small { color: #a5b3ca; font-size: 11px; margin-top: 3px; }
+    .live-dot { width: 7px; height: 7px; border-radius: 50%; background: #8bd4b0; margin-top: 4px; }
+    .canvas-viewport .selected-item-toolbar { max-width: calc(100% - 24px); flex-wrap: wrap; justify-content: center; border-radius: 16px; padding: 10px 12px; }
+    .canvas-viewport .viewport-hints { right: 16px; }
+    .right-sidebar { width: 248px; min-width: 0; background: #111a2d; }
+    .right-sidebar .inspector-header { padding: 24px 18px 17px; }
+    .inspector-title { display: flex; align-items: center; justify-content: space-between; }
+    .right-sidebar .inspector-header h3 { font-size: 16px; margin-top: 6px; }
+    .inspector-title b { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 10px; background: #293750; color: #ffc0b4; font-size: 12px; }
+    .inspector-header p { margin: 8px 0 0; color: #98a8c2; font-size: 12px; }
+    .right-sidebar .placed-list .placed-row { padding: 10px; border-radius: 11px; background: #1c2940; }
+    .right-sidebar .placed-list .placed-row .icon-circle { border-radius: 9px; overflow: hidden; width: 38px; height: 38px; flex-shrink: 0; }
+    .icon-circle img { width: 100%; height: 100%; object-fit: cover; }
+    @media (max-width: 1250px) { .designer-toolbar { flex-wrap: wrap; } .designer-toolbar .toolbar-actions { margin-left: auto; } .left-sidebar { width: 300px; } .right-sidebar { width: 210px; } }
+    @media (max-width: 900px) {
+      .designer-layout { height: auto; min-height: 100vh; overflow: visible; }
+      .designer-toolbar { position: relative; padding: 14px; gap: 12px; }
+      .designer-toolbar .brand-sub { min-width: 0; flex: 1 0 100%; }
+      .designer-toolbar .view-toggle { width: 100%; justify-content: space-between; }
+      .designer-toolbar .toolbar-actions { justify-content: flex-start; margin: 0; }
+      .studio-body { display: flex; flex-wrap: wrap; overflow: visible; }
+      .left-sidebar { width: 100% !important; max-height: none; order: 1; }
+      .left-sidebar .tab-content { max-height: 440px; }
+      .canvas-viewport { flex: 1 0 100%; width: 100%; min-height: 480px; height: 60vh; order: 2; }
+      .right-sidebar { width: 100% !important; max-height: 360px; order: 3; }
+      .canvas-viewport .selected-item-toolbar { width: max-content; }
+    }
+    @media (max-width: 520px) {
+      .designer-toolbar .toolbar-actions { gap: 5px; }
+      .designer-toolbar .toolbar-actions .tool-btn, .designer-toolbar .toolbar-actions .btn-save { font-size: 11px; padding: 7px; }
+      .designer-toolbar .view-toggle button { font-size: 11px; padding: 8px 6px; }
+      .canvas-viewport .viewport-hints { bottom: 10px; left: 10px; gap: 5px; }
+      .canvas-viewport .viewport-hints .hint-pill { font-size: 10px; padding: 5px 7px; }
+    }
   `]
 })
 export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
@@ -835,6 +913,7 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
   activeTab: 'PHOTOS' | 'FURNITURE' | 'PAINT' | 'ROOM' = 'PHOTOS';
   roomPhoto = '';
   photoError = '';
+  saveMessage = '';
   private cdr = inject(ChangeDetectorRef);
   selectedCategory = 'Living Room';
   categories = ['Living Room', 'Bedroom', 'Kitchen', 'Bathroom', 'Office', 'Decor'];
@@ -994,7 +1073,7 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
       this.furnitureMeshMap.forEach(mesh => this.scene?.remove(mesh)); this.furnitureMeshMap.clear();
       this.placedItems = JSON.parse(JSON.stringify(project.placedFurniture)); this.selectedFurniture = null;
       if (this.scene) { this.build3DRoom(); this.rebuildAllMeshes(); }
-      this.historyStack = []; this.saveHistoryState(); this.photoError = ''; this.cdr.markForCheck();
+      this.historyStack = []; this.saveHistoryState(); this.photoError = ''; this.saveMessage = 'Your saved design is ready.'; this.cdr.markForCheck();
     });
   }
 
@@ -1822,7 +1901,8 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
   // 10. EXPORT & SAVE
   exportStudioSnapshot() {
     if (this.renderer) {
-      const dataUrl = this.renderer.domElement.toDataURL('image/png');
+      const canvas = this.viewMode === '3D' ? this.renderer.domElement : this.canvas2DRef.nativeElement;
+      const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
       link.download = `omnispace-3d-design-${Date.now()}.png`;
       link.href = dataUrl;
@@ -1839,8 +1919,9 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.currentProject.wallColor = this.wallColor;
 
     try {
-      this.designService.saveDesign(this.currentProject).subscribe(() => alert('Design saved in this browser. Use Restore last saved design to reopen it.'));
+      this.designService.saveDesign(this.currentProject).subscribe(() => { this.saveMessage = 'Saved in this browser. Restore it anytime from Photos.'; this.photoError = ''; this.activeTab = 'PHOTOS'; this.cdr.markForCheck(); });
     } catch {
+      this.saveMessage = '';
       this.photoError = 'Could not save: browser storage may be full. Remove some photos and try again.';
       this.activeTab = 'PHOTOS';
     }
