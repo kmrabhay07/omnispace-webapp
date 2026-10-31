@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -19,7 +19,7 @@ import { AuthService } from '../../../core/services/auth.service';
 
         <div *ngIf="returnUrl.includes('properties/new')" class="info-alert">
           <i class="fa-solid fa-circle-info"></i>
-          <span>Create an account to publish your property listing. Your name and email will be linked as the verified owner.</span>
+          <span>Create an account to publish your property listing. Your name and email will be linked as the listing owner.</span>
         </div>
 
         <!-- Social Sign Up (Google & Apple) -->
@@ -46,6 +46,7 @@ import { AuthService } from '../../../core/services/auth.service';
           <span>or register with email</span>
         </div>
 
+        <p *ngIf="error" role="alert" class="form-error">{{ error }}</p>
         <form (ngSubmit)="onRegister()">
           <div class="form-group">
             <label>Full Name</label>
@@ -62,7 +63,7 @@ import { AuthService } from '../../../core/services/auth.service';
             <input type="password" [(ngModel)]="password" name="password" required placeholder="••••••••">
           </div>
 
-          <button type="submit" class="btn btn-primary btn-full mt-3">
+          <button type="submit" [disabled]="busy" class="btn btn-primary btn-full mt-3">
             Register & Continue <i class="fa-solid fa-arrow-right"></i>
           </button>
         </form>
@@ -242,19 +243,15 @@ export class RegisterComponent implements OnInit {
     this.returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/';
   }
 
+  busy = false;
+  error = '';
+  private cdr = inject(ChangeDetectorRef);
   onRegister() {
-    if (!this.name || !this.email || !this.password) {
-      alert('Please enter your name, email and password!');
-      return;
-    }
-
-    this.auth.register({
-      name: this.name,
-      email: this.email,
-      password: this.password
-    }).subscribe(() => {
-      alert('🎉 Account created successfully!');
-      this.router.navigateByUrl(this.returnUrl);
+    if (this.busy) return;
+    this.busy = true; this.error = '';
+    this.auth.register({ name: this.name.trim(), email: this.email.trim(), password: this.password }).subscribe({
+      next: () => { this.busy = false; this.router.navigateByUrl(this.returnUrl.startsWith('/') && !this.returnUrl.startsWith('//') ? this.returnUrl : '/'); },
+      error: err => { this.busy = false; this.error = err.error?.message || err.message || 'Could not sign in. Please try again.'; this.cdr.markForCheck(); }
     });
   }
 }

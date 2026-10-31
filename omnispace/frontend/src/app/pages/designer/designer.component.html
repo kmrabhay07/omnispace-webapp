@@ -1,0 +1,246 @@
+<div class="designer-layout animate-fade-in">
+      <!-- TOP TOOLBAR -->
+      <header class="designer-toolbar">
+        <div class="brand-sub">
+          <div class="cube-icon"><i class="fa-solid fa-cube"></i></div>
+          <div class="brand-copy"><span class="brand-eyebrow">OMNISPACE / STUDIO</span><input class="project-title project-name" aria-label="Design name" [(ngModel)]="currentProject.name" maxlength="160" (change)="saveHistoryState()"></div>
+        </div>
+
+        <!-- 3D vs 2D View Switcher -->
+        <div class="view-toggle">
+          <button [class.active]="viewMode === '3D'" (click)="setViewMode('3D')">
+            <i class="fa-solid fa-cube"></i> 3D View
+          </button>
+          <button [class.active]="viewMode === 'TOP_DOWN'" (click)="setViewMode('TOP_DOWN')">
+            <i class="fa-solid fa-layer-group"></i> Floor plan
+          </button>
+          <button [class.active]="viewMode === 'FRONT'" (click)="setViewMode('FRONT')">
+            <i class="fa-solid fa-vr-cardboard"></i> Elevation
+          </button>
+        </div>
+
+        <div class="toolbar-actions">
+          <button class="tool-btn" (click)="resetCameraView()" title="Reset Camera">
+            <i class="fa-solid fa-camera-rotate"></i> Reset View
+          </button>
+          <button class="tool-btn" (click)="toggleDayNight()" [class.active]="isNightMode" title="Toggle Day/Night Lighting">
+            <i [class]="isNightMode ? 'fa-solid fa-moon' : 'fa-solid fa-sun'"></i> {{ isNightMode ? 'Night Mode' : 'Daylight' }}
+          </button>
+          <button class="tool-btn" (click)="undo()" [disabled]="!history.canUndo" title="Undo last change">
+            <i class="fa-solid fa-rotate-left"></i> Undo
+          </button>
+          <button class="tool-btn" (click)="redo()" [disabled]="!history.canRedo" title="Redo last change">Redo</button>
+          <a routerLink="/designs" class="tool-btn">My designs</a>
+          <button class="tool-btn btn-danger" (click)="clearAllFurniture()" title="Clear Room">
+            <i class="fa-solid fa-trash"></i> Clear
+          </button>
+          <button class="tool-btn btn-export" (click)="exportStudioSnapshot()" title="Export PNG Image">
+            <i class="fa-solid fa-download"></i> Export PNG
+          </button>
+          <button class="btn btn-primary btn-save" (click)="saveProject()" [disabled]="saving || !ready">
+            <i class="fa-solid fa-floppy-disk"></i> {{ saving ? 'Saving…' : 'Save design' }}
+          </button>
+        </div>
+      </header>
+
+      <div class="studio-feedback" aria-live="polite"><span>{{ saveMessage }}</span><span role="alert">{{ photoError }}</span><span *ngIf="!ready">Loading project…</span></div>
+      <div class="studio-body" [class.editor-loading]="!ready">
+        <!-- LEFT SIDEBAR: 3D FURNITURE & MATERIAL PALETTE -->
+        <aside class="left-sidebar">
+          <div class="studio-intro"><span>YOUR CREATIVE SPACE</span><h2>Make room for ideas<span class="intro-dot">.</span></h2><p>Build a space that feels like you.</p></div>
+          <div class="sidebar-tabs"><button [class.active]="activeTab === 'PHOTOS'" (click)="activeTab = 'PHOTOS'"><i class="fa-solid fa-image"></i> Photos</button>
+            <button [class.active]="activeTab === 'FURNITURE'" (click)="activeTab = 'FURNITURE'">
+              <i class="fa-solid fa-couch"></i> 3D Furniture
+            </button>
+            <button [class.active]="activeTab === 'PAINT'" (click)="activeTab = 'PAINT'">
+              <i class="fa-solid fa-palette"></i> Walls & Floor
+            </button>
+            <button [class.active]="activeTab === 'ROOM'" (click)="activeTab = 'ROOM'">
+              <i class="fa-solid fa-vector-square"></i> Room Specs
+            </button>
+          </div>
+
+          <div class="tab-content photo-panel" *ngIf="activeTab === 'PHOTOS'">
+            <div class="section-kicker">GET STARTED <span>01 / 02</span></div><div class="photo-heading"><span>01</span><div><h3>Start with your room</h3><p>Add a photo to use as the back wall of your 3D space.</p></div></div>
+            <label class="upload-card" for="room-upload"><img *ngIf="roomPhoto" [src]="roomPhoto" alt="Room reference"><i *ngIf="!roomPhoto" class="fa-solid fa-cloud-arrow-up"></i><strong>{{ roomPhoto ? 'Replace room photo' : 'Upload a room photo' }}</strong><small>JPG, PNG or WebP · up to 10 MB</small></label>
+            <input id="room-upload" class="file-input" type="file" accept="image/jpeg,image/png,image/webp" (change)="uploadRoom($event)">
+            <button *ngIf="roomPhoto" class="text-button" (click)="removeRoomPhoto()">Remove room photo</button>
+            <div class="photo-divider"></div>
+            <div class="photo-heading"><span>02</span><div><h3>Bring in your furniture</h3><p>Add a sofa, table or decor photo to the scene.</p></div></div>
+            <label class="upload-card furniture-upload" for="furniture-upload"><i class="fa-solid fa-plus"></i><strong>Add furniture photo</strong><small>Transparent PNG works best</small></label>
+            <input id="furniture-upload" class="file-input" type="file" accept="image/jpeg,image/png,image/webp" (change)="uploadFurniture($event)">
+            <p class="photo-note photo-info"><i class="fa-solid fa-circle-info"></i> Photos appear as flat panels, not 3D models. Select one to move, rotate or resize it.</p>
+            <p class="photo-error" role="alert" *ngIf="photoError">{{ photoError }}</p><p class="photo-success" role="status" *ngIf="saveMessage">{{ saveMessage }}</p>
+            <button class="restore-button" (click)="restoreLastDesign()">Open latest saved design</button><p class="photo-note">Projects autosave to your account after each change.</p>
+          </div>
+          <!-- FURNITURE TAB CONTENT -->
+          <div class="tab-content" *ngIf="activeTab === 'FURNITURE'">
+            <div class="panel-heading"><span>EXPLORE THE COLLECTION</span><h3>Find your furniture</h3><p>Choose a piece to add it to your room.</p></div><div class="category-pills">
+              <button
+                *ngFor="let cat of categories"
+                [class.active]="selectedCategory === cat"
+                (click)="selectedCategory = cat"
+              >
+                {{ cat }}
+              </button>
+            </div>
+
+            <div class="catalog-grid">
+              <div
+                *ngFor="let item of filteredCatalog"
+                class="catalog-card"
+                (click)="add3DFurniture(item)"
+              >
+                <div class="item-preview">
+                  <div class="item-3d-badge">3D</div>
+                  <i [class]="getCategoryIcon(item.category)" class="catalog-icon"></i>
+                </div>
+                <div class="item-meta">
+                  <div class="name">{{ item.name }}</div>
+                  <div class="dimensions">{{ item.defaultWidth }}' × {{ item.defaultHeight }}'</div>
+                </div>
+                <button class="add-btn" title="Add to room"><i class="fa-solid fa-plus"></i></button>
+              </div>
+            </div>
+          </div>
+
+          <!-- PAINT & FLOOR MATERIALS TAB -->
+          <div class="tab-content" *ngIf="activeTab === 'PAINT'">
+            <div class="palette-section">
+              <h4><i class="fa-solid fa-paint-roller"></i> 3D Wall Paint</h4>
+              <p class="sub-label">Click a shade to paint all interior walls</p>
+              <div class="color-swatches">
+                <div
+                  *ngFor="let c of wallPalette"
+                  class="swatch"
+                  [style.background-color]="c.hex"
+                  [class.active]="wallColor === c.hex"
+                  (click)="setWallColor(c.hex)"
+                  [title]="c.name"
+                ></div>
+              </div>
+            </div>
+
+            <div class="palette-section">
+              <h4><i class="fa-solid fa-border-all"></i> 3D Floor Textures & Materials</h4>
+              <p class="sub-label">Select flooring surface</p>
+              <div class="material-grid">
+                <button
+                  *ngFor="let mat of floorMaterials"
+                  class="material-card"
+                  [class.active]="floorMaterialType === mat.id"
+                  (click)="setFloorMaterial(mat.id)"
+                >
+                  <div class="mat-color-preview" [style.background]="mat.preview"></div>
+                  <span>{{ mat.name }}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- ROOM SPECS TAB -->
+          <div class="tab-content" *ngIf="activeTab === 'ROOM'">
+            <div class="room-control-group">
+              <label>Room Width (Feet): {{ roomWidthFt }}'</label>
+              <input type="range" min="10" max="36" step="2" [(ngModel)]="roomWidthFt" (input)="updateRoomDimensions()">
+            </div>
+            <div class="room-control-group">
+              <label>Room Length (Feet): {{ roomLengthFt }}'</label>
+              <input type="range" min="10" max="36" step="2" [(ngModel)]="roomLengthFt" (input)="updateRoomDimensions()">
+            </div>
+            <div class="room-control-group">
+              <label>Ceiling Height: {{ roomHeightFt }}'</label>
+              <input type="range" min="8" max="16" step="1" [(ngModel)]="roomHeightFt" (input)="updateRoomDimensions()">
+            </div>
+
+            <div class="room-preset-boxes">
+              <h4>Quick Layout Presets:</h4>
+              <button class="btn-preset" (click)="applyRoomPreset('LIVING')">Modern Living Room</button>
+              <button class="btn-preset" (click)="applyRoomPreset('BEDROOM')">Master Suite</button>
+              <button class="btn-preset" (click)="applyRoomPreset('OFFICE')">Executive Office</button>
+            </div>
+          </div>
+        </aside>
+
+        <!-- 3D / 2D CANVAS VIEWPORT -->
+        <main class="canvas-viewport" #viewportContainer>
+          <div class="viewport-label" *ngIf="!selectedFurniture"><span class="live-dot"></span><div><strong>{{ viewMode === '3D' ? 'Your space in 3D' : (viewMode === 'TOP_DOWN' ? 'Floor plan' : 'Elevation') }}</strong><small>{{ roomWidthFt }} × {{ roomLengthFt }} ft · {{ placedItems.length }} pieces</small></div></div>
+          <!-- THREE.JS 3D CANVAS CONTAINER -->
+          <div class="threejs-canvas-wrapper" #threeCanvasContainer [style.display]="viewMode !== 'TOP_DOWN' ? 'block' : 'none'"></div>
+
+          <!-- 2D FLOOR PLAN / ELEVATION CANVAS (for 2D views) -->
+          <canvas
+            #canvas2D
+            class="canvas-2d"
+            [style.display]="viewMode === 'TOP_DOWN' ? 'block' : 'none'"
+            (pointerdown)="on2DMouseDown($event)"
+            (pointermove)="on2DMouseMove($event)"
+            (pointerup)="on2DMouseUp($event)"
+            (pointercancel)="on2DMouseUp($event)"
+          ></canvas>
+
+          <!-- 3D INTERACTION HINT OVERLAY -->
+          <div class="viewport-hints" *ngIf="viewMode === '3D'">
+            <div class="hint-pill"><i class="fa-solid fa-arrows-up-down-left-right"></i> <strong>Touch or drag an object</strong> to Move</div>
+            <div class="hint-pill"><i class="fa-solid fa-computer-mouse"></i> Left Click Floor: <strong>Orbit Camera</strong></div>
+            <div class="hint-pill"><i class="fa-solid fa-keyboard"></i> Arrow Keys: <strong>Nudge Position</strong></div>
+          </div>
+
+          <!-- SELECTED ITEM FLOATING CONTROLLER -->
+          <div class="selected-item-toolbar" *ngIf="selectedFurniture">
+            <div class="selected-meta">
+              <span class="selected-title"><i class="fa-solid fa-couch"></i> {{ selectedFurniture.name }}</span>
+              <span class="selected-pos">{{ selectedFurniture.width | number:'1.1-2' }} × {{ selectedFurniture.height | number:'1.1-2' }} ft · {{ selectedFurniture.rotation }}°</span>
+            </div>
+
+            <!-- Precision Direction Pad -->
+            <div class="move-dpad">
+              <button (click)="moveSelected(-0.25, 0)" title="Move Left (←)"><i class="fa-solid fa-arrow-left"></i></button>
+              <button (click)="moveSelected(0, -0.25)" title="Move Up (↑)"><i class="fa-solid fa-arrow-up"></i></button>
+              <button (click)="moveSelected(0, 0.25)" title="Move Down (↓)"><i class="fa-solid fa-arrow-down"></i></button>
+              <button (click)="moveSelected(0.25, 0)" title="Move Right (→)"><i class="fa-solid fa-arrow-right"></i></button>
+            </div>
+
+            <div class="actions">
+              <button *ngIf="selectedFurniture.imageData" (click)="resizePhoto(0.8)" title="Make photo smaller">− Size</button>
+              <button *ngIf="selectedFurniture.imageData" (click)="resizePhoto(1.25)" title="Make photo larger">+ Size</button>
+              <button (click)="rotateSelected(45)" title="Rotate 45° (R)"><i class="fa-solid fa-rotate-right"></i> Rotate</button>
+              <button *ngIf="!selectedFurniture.imageData" (click)="changeColorSelected()" title="Change Fabric Color"><i class="fa-solid fa-paint-roller"></i> Color</button>
+              <button class="btn-del" (click)="deleteSelected()" title="Delete (Del)"><i class="fa-solid fa-trash"></i></button>
+            </div>
+          </div>
+        </main>
+
+        <!-- RIGHT SIDEBAR: PLACED OBJECTS & INSPECTOR -->
+        <aside class="right-sidebar">
+          <div class="inspector-header">
+            <div class="inspector-title"><div><span>YOUR SPACE</span><h3>Placed pieces</h3></div><b>{{ placedItems.length }}</b></div><p>Select an item to edit it.</p>
+          </div>
+
+          <div class="placed-list" *ngIf="placedItems.length > 0; else emptyPlaced">
+            <div
+              *ngFor="let item of placedItems"
+              class="placed-row"
+              [class.active]="selectedFurniture?.instanceId === item.instanceId"
+              (click)="selectItem(item)"
+            >
+              <div class="icon-circle"><img *ngIf="item.imageData" [src]="item.imageData" alt=""><i *ngIf="!item.imageData" [class]="getCategoryIcon(item.category)"></i></div>
+              <div class="name-box">
+                <div class="item-name">{{ item.name }}</div>
+                <div class="item-sub">{{ item.imageData ? 'Photo' : '3D object' }} · {{ item.rotation }}°</div>
+              </div>
+              <button class="remove-btn" [attr.aria-label]="'Remove ' + item.name" (click)="$event.stopPropagation(); deleteItem(item.instanceId)">
+                <i class="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
+          </div>
+
+          <ng-template #emptyPlaced>
+            <div class="empty-state">
+              <i class="fa-solid fa-couch"></i>
+              <p>Your room is a blank canvas.<br>Add a photo or choose a piece from the collection.</p>
+            </div>
+          </ng-template>
+        </aside>
+      </div>
+    </div>

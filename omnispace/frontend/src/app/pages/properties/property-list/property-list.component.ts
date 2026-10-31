@@ -1,6 +1,6 @@
 import { Component, inject, OnInit, ChangeDetectorRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { PropertyService } from '../../../core/services/property.service';
 import { Property } from '../../../core/models/property.model';
@@ -9,7 +9,7 @@ import { PropertyCardComponent } from '../../../shared/components/property-card/
 @Component({
   selector: 'app-property-list',
   standalone: true,
-  imports: [CommonModule, RouterLink, FormsModule, PropertyCardComponent],
+  imports: [CommonModule, FormsModule, PropertyCardComponent],
   template: `
     <div class="property-list-page animate-fade-in">
       <div class="header-banner">
@@ -21,7 +21,7 @@ import { PropertyCardComponent } from '../../../shared/components/property-card/
 
       <div class="container main-layout">
         <!-- FILTER SIDEBAR -->
-        <aside class="filter-sidebar">
+        <aside class="filter-sidebar"><div class="filter-group"><label>Currency</label><select [(ngModel)]="currency" (change)="applyFilters()"><option value="">All currencies</option><option>INR</option><option>USD</option><option>EUR</option><option>GBP</option><option>AED</option></select><small>Choose a currency to compare prices.</small></div>
           <div class="sidebar-header">
             <h3><i class="fa-solid fa-sliders"></i> Filters</h3>
             <button (click)="resetFilters()" class="btn-reset">Reset All</button>
@@ -31,9 +31,9 @@ import { PropertyCardComponent } from '../../../shared/components/property-card/
           <div class="filter-group">
             <label>Property Type</label>
             <div class="segmented-control">
-              <button [class.active]="selectedType === ''" (click)="selectedType = ''">All</button>
-              <button [class.active]="selectedType === 'RESIDENTIAL'" (click)="selectedType = 'RESIDENTIAL'">Residential</button>
-              <button [class.active]="selectedType === 'COMMERCIAL'" (click)="selectedType = 'COMMERCIAL'">Commercial</button>
+              <button [class.active]="selectedType === ''" (click)="selectedType = ''; applyFilters()">All</button>
+              <button [class.active]="selectedType === 'RESIDENTIAL'" (click)="selectedType = 'RESIDENTIAL'; applyFilters()">Residential</button>
+              <button [class.active]="selectedType === 'COMMERCIAL'" (click)="selectedType = 'COMMERCIAL'; applyFilters()">Commercial</button>
             </div>
           </div>
 
@@ -81,7 +81,7 @@ import { PropertyCardComponent } from '../../../shared/components/property-card/
         </aside>
 
         <!-- PROPERTY GRID CONTENT -->
-        <main class="grid-container">
+        <main class="grid-container"><p *ngIf="error" class="form-error" role="alert">{{error}}</p>
           <div class="results-bar">
             <span>Showing <strong>{{ filteredProperties.length }}</strong> properties</span>
             <div class="sort-wrapper">
@@ -115,7 +115,7 @@ import { PropertyCardComponent } from '../../../shared/components/property-card/
               </div>
             </ng-template>
           </ng-template>
-        </main>
+        <button *ngIf="hasMore && !isLoading" class="btn btn-outline" (click)="fetchProperties(true)">Load more properties</button></main>
       </div>
     </div>
   `,
@@ -335,66 +335,34 @@ export class PropertyListComponent implements OnInit {
     });
   }
 
-  fetchProperties() {
-    if (this.allProperties.length === 0) {
-      this.isLoading = true;
-    }
-    this.propertyService.getProperties().subscribe({
-      next: (props) => {
-        this.ngZone.run(() => {
-          this.isLoading = false;
-          this.allProperties = props || [];
-          this.applyFilters();
-          this.cdr.markForCheck();
-        });
+  currency = '';
+  error = '';
+  hasMore = false;
+  private page = 0;
+  private requestNumber = 0;
+  fetchProperties(more = false) {
+    if (more && this.isLoading) return;
+    const request = ++this.requestNumber;
+    const page = more ? this.page + 1 : 0;
+    const filters: Record<string,string|number> = {sort:this.sortBy};
+    if(this.selectedType)filters['type']=this.selectedType;
+    if(this.selectedCategory)filters['category']=this.selectedCategory;
+    if(this.searchLocation.trim())filters['location']=this.searchLocation.trim();
+    if(this.currency)filters['currency']=this.currency;
+    if(this.maxPrice<100000000 && this.currency)filters['maxPrice']=this.maxPrice;
+    if(this.minBedrooms)filters['bedrooms']=this.minBedrooms;
+    this.isLoading=true;this.error='';
+    this.propertyService.getProperties(page,filters).subscribe({
+      next: props => {
+        if(request!==this.requestNumber)return;
+        this.page=page;this.hasMore=props.length===24;
+        this.allProperties=more?[...this.allProperties,...props]:props;
+        this.filteredProperties=[...this.allProperties];this.isLoading=false;this.cdr.markForCheck();
       },
-      error: (err) => {
-        this.ngZone.run(() => {
-          this.isLoading = false;
-          this.allProperties = [];
-          this.applyFilters();
-          this.cdr.markForCheck();
-        });
-      }
+      error:()=>{if(request!==this.requestNumber)return;this.isLoading=false;this.error='Could not load properties. Please retry.';this.cdr.markForCheck();}
     });
   }
-
-  applyFilters() {
-    let result = [...this.allProperties];
-
-    if (this.selectedType) {
-      result = result.filter(p => p.propertyType?.toUpperCase() === this.selectedType.toUpperCase());
-    }
-    if (this.selectedCategory) {
-      result = result.filter(p => p.category?.toLowerCase() === this.selectedCategory.toLowerCase());
-    }
-    if (this.searchLocation && this.searchLocation.trim()) {
-      const kw = this.searchLocation.trim().toLowerCase();
-      result = result.filter(p =>
-        (p.title && p.title.toLowerCase().includes(kw)) ||
-        (p.location && p.location.toLowerCase().includes(kw)) ||
-        (p.description && p.description.toLowerCase().includes(kw))
-      );
-    }
-    if (this.maxPrice < 100000000) {
-      result = result.filter(p => p.price == null || p.price <= this.maxPrice);
-    }
-    if (this.minBedrooms > 0) {
-      result = result.filter(p => p.bedrooms != null && p.bedrooms >= this.minBedrooms);
-    }
-
-    // Sort
-    if (this.sortBy === 'price-asc') {
-      result.sort((a, b) => a.price - b.price);
-    } else if (this.sortBy === 'price-desc') {
-      result.sort((a, b) => b.price - a.price);
-    } else if (this.sortBy === 'area') {
-      result.sort((a, b) => b.areaSqFt - a.areaSqFt);
-    }
-
-    this.filteredProperties = result;
-    this.cdr.markForCheck();
-  }
+  applyFilters(){this.fetchProperties();}
 
   resetFilters() {
     this.selectedType = '';
@@ -403,6 +371,7 @@ export class PropertyListComponent implements OnInit {
     this.maxPrice = 100000000;
     this.minBedrooms = 0;
     this.sortBy = 'newest';
+    this.currency = '';
     this.applyFilters();
   }
 }

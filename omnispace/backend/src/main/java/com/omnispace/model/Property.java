@@ -20,6 +20,8 @@ import java.util.List;
 public class Property {
     @Id
     private String id;
+    private String status = "DRAFT";
+    private String floorPlanImage;
     
     @NotBlank(message = "Title is required")
     private String title;

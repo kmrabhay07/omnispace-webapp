@@ -16,6 +16,7 @@ import java.time.Instant;
 public class Message {
     @Id
     private String id;
+    private String conversationId;
 
     @NotBlank(message = "Property ID is required")
     private String propertyId;

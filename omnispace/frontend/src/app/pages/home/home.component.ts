@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -521,15 +521,14 @@ export class HomeComponent implements OnInit {
   propertyService = inject(PropertyService);
   router = inject(Router);
 
+  private cdr = inject(ChangeDetectorRef);
   featuredProperties: Property[] = [];
   searchType: 'ALL' | 'RESIDENTIAL' | 'COMMERCIAL' = 'ALL';
   searchKeyword = '';
   searchCategory = '';
 
   ngOnInit() {
-    this.propertyService.getProperties().subscribe(props => {
-      this.featuredProperties = props.slice(0, 3);
-    });
+    this.propertyService.getProperties().subscribe({ next: props => { this.featuredProperties = props.slice(0, 3); this.cdr.markForCheck(); }, error: () => { this.featuredProperties = []; this.cdr.markForCheck(); } });
   }
 
   onSearch() {

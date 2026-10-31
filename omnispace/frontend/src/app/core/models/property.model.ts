@@ -1,5 +1,8 @@
 export interface Property {
   id: string;
+  status?: 'DRAFT' | 'PUBLISHED';
+  floorPlanImage?: string;
+  updatedAt?: string;
   title: string;
   description: string;
   propertyType: 'RESIDENTIAL' | 'COMMERCIAL';

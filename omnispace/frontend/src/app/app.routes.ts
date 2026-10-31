@@ -1,22 +1,16 @@
 import { Routes } from '@angular/router';
-import { HomeComponent } from './pages/home/home.component';
-import { PropertyListComponent } from './pages/properties/property-list/property-list.component';
-import { PropertyDetailComponent } from './pages/properties/property-detail/property-detail.component';
-import { PropertyFormComponent } from './pages/properties/property-form/property-form.component';
-import { DesignerComponent } from './pages/designer/designer.component';
-import { LoginComponent } from './pages/auth/login/login.component';
-import { RegisterComponent } from './pages/auth/register/register.component';
-import { ChatsComponent } from './pages/chats/chats.component';
 import { authGuard } from './core/guards/auth.guard';
-
 export const routes: Routes = [
-  { path: '', component: HomeComponent },
-  { path: 'properties', component: PropertyListComponent },
-  { path: 'properties/new', component: PropertyFormComponent, canActivate: [authGuard] },
-  { path: 'properties/:id', component: PropertyDetailComponent },
-  { path: 'designer', component: DesignerComponent },
-  { path: 'chats', component: ChatsComponent },
-  { path: 'login', component: LoginComponent },
-  { path: 'register', component: RegisterComponent },
+  { path: '', loadComponent: () => import('./pages/home/home.component').then(m => m.HomeComponent) },
+  { path: 'properties', loadComponent: () => import('./pages/properties/property-list/property-list.component').then(m => m.PropertyListComponent) },
+  { path: 'properties/new', canActivate: [authGuard], loadComponent: () => import('./pages/properties/property-form/property-form.component').then(m => m.PropertyFormComponent) },
+  { path: 'properties/:id/edit', canActivate: [authGuard], loadComponent: () => import('./pages/properties/property-form/property-form.component').then(m => m.PropertyFormComponent) },
+  { path: 'properties/:id', loadComponent: () => import('./pages/properties/property-detail/property-detail.component').then(m => m.PropertyDetailComponent) },
+  { path: 'my-properties', canActivate: [authGuard], loadComponent: () => import('./pages/properties/my-properties.component').then(m => m.MyPropertiesComponent) },
+  { path: 'designs', canActivate: [authGuard], loadComponent: () => import('./pages/designer/design-gallery.component').then(m => m.DesignGalleryComponent) },
+  { path: 'designer', canActivate: [authGuard], canDeactivate: [(component: { canLeave: () => boolean }) => component.canLeave()], loadComponent: () => import('./pages/designer/designer.component').then(m => m.DesignerComponent) },
+  { path: 'chats', canActivate: [authGuard], loadComponent: () => import('./pages/chats/chats.component').then(m => m.ChatsComponent) },
+  { path: 'login', loadComponent: () => import('./pages/auth/login/login.component').then(m => m.LoginComponent) },
+  { path: 'register', loadComponent: () => import('./pages/auth/register/register.component').then(m => m.RegisterComponent) },
   { path: '**', redirectTo: '' }
 ];

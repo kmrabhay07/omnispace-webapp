@@ -1,5 +1,6 @@
 export interface FurnitureItem {
   id: string;
+  modelUrl?: string;
   name: string;
   category: 'Living Room' | 'Bedroom' | 'Kitchen' | 'Bathroom' | 'Office' | 'Decor';
   iconSvg: string;

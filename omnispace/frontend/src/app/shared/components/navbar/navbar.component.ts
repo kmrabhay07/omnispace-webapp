@@ -54,13 +54,13 @@ import { AuthService } from '../../../core/services/auth.service';
                   <div class="menu-user-info">
                     <div class="menu-user-name">{{ auth.currentUser()?.name }}</div>
                     <div class="menu-user-email">{{ auth.currentUser()?.email }}</div>
-                    <span class="menu-role-tag"><i class="fa-solid fa-shield-halved"></i> Verified Host</span>
+                    <span class="menu-role-tag"><i class="fa-solid fa-shield-halved"></i> Account member</span>
                   </div>
                 </div>
 
                 <div class="menu-divider"></div>
 
-                <div class="menu-links-group">
+                <div class="menu-links-group"><a routerLink="/my-properties" (click)="closeDropdown()" class="menu-item">My listings</a><a routerLink="/designs" (click)="closeDropdown()" class="menu-item">Saved designs</a>
                   <a routerLink="/chats" (click)="closeDropdown()" class="menu-item">
                     <i class="fa-solid fa-comments"></i>
                     <span>My Chats & Inquiries</span>
