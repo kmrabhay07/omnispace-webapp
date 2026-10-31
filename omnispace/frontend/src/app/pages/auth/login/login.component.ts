@@ -1,4 +1,4 @@
-import { Component, inject, OnInit } from '@angular/core';
+import { Component, inject, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -19,7 +19,7 @@ import { AuthService } from '../../../core/services/auth.service';
 
         <div *ngIf="returnUrl.includes('properties/new')" class="info-alert">
           <i class="fa-solid fa-circle-info"></i>
-          <span>Please log in or create an account to list your property. Your account details will be attached as the verified host.</span>
+          <span>Please log in or create an account to list your property. Your account details will be attached as the listing owner.</span>
         </div>
 
         <!-- Social Login (Google & Apple) -->
@@ -46,6 +46,7 @@ import { AuthService } from '../../../core/services/auth.service';
           <span>or sign in with email</span>
         </div>
 
+        <p *ngIf="error" role="alert" class="form-error">{{ error }}</p>
         <form (ngSubmit)="onLogin()">
           <div class="form-group">
             <label>Email Address</label>
@@ -57,7 +58,7 @@ import { AuthService } from '../../../core/services/auth.service';
             <input type="password" [(ngModel)]="password" name="password" required placeholder="••••••••">
           </div>
 
-          <button type="submit" class="btn btn-primary btn-full mt-3">
+          <button type="submit" [disabled]="busy" class="btn btn-primary btn-full mt-3">
             Log In & Continue <i class="fa-solid fa-arrow-right"></i>
           </button>
         </form>
@@ -228,25 +229,23 @@ export class LoginComponent implements OnInit {
   router = inject(Router);
   route = inject(ActivatedRoute);
 
-  email = 'alex@omnispace.com';
-  password = 'password123';
+  email = '';
+  password = '';
   returnUrl = '/';
 
   ngOnInit() {
     this.returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/';
   }
 
+  busy = false;
+  error = '';
+  private cdr = inject(ChangeDetectorRef);
   onLogin() {
-    if (!this.email || !this.password) {
-      alert('Please enter your email and password!');
-      return;
-    }
-
-    this.auth.login({
-      email: this.email,
-      password: this.password
-    }).subscribe(() => {
-      this.router.navigateByUrl(this.returnUrl);
+    if (this.busy) return;
+    this.busy = true; this.error = '';
+    this.auth.login({ email: this.email.trim(), password: this.password }).subscribe({
+      next: () => { this.busy = false; this.router.navigateByUrl(this.returnUrl.startsWith('/') && !this.returnUrl.startsWith('//') ? this.returnUrl : '/'); },
+      error: err => { this.busy = false; this.error = err.error?.message || err.message || 'Could not sign in. Please try again.'; this.cdr.markForCheck(); }
     });
   }
 }

@@ -9,6 +9,8 @@ spring:
       uri: ${SPRING_DATA_MONGODB_URI:${MONGODB_URI:${MONGO_DB_URI:${MONGO_URI:mongodb://localhost:27017/omnispace}}}}
 
 app:
+  cors:
+    allowed-origins: ${ALLOWED_ORIGINS:http://localhost:4200}
   jwt:
     secret: ${JWT_SECRET}
     expiration-ms: 86400000
@@ -16,5 +18,5 @@ app:
 logging:
   level:
     root: INFO
-    com.omnispace: DEBUG
-    org.springframework.data.mongodb: DEBUG
+    com.omnispace: INFO
+    org.springframework.data.mongodb: WARN

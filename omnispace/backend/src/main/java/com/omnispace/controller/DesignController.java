@@ -1,62 +1,24 @@
 package com.omnispace.controller;
-
 import com.omnispace.model.DesignProject;
-import com.omnispace.repository.DesignProjectRepository;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
-
-import java.time.Instant;
+import com.omnispace.service.DesignService;
+import com.omnispace.security.CurrentUser;
+import jakarta.validation.Valid;
 import java.util.List;
-import java.util.Map;
-
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/designs")
+@RequiredArgsConstructor
 public class DesignController {
-
-    @Autowired
-    private DesignProjectRepository designRepository;
-
-    @GetMapping
-    public ResponseEntity<List<DesignProject>> getAllDesigns(@RequestParam(required = false) String userId) {
-        if (userId != null && !userId.isEmpty()) {
-            return ResponseEntity.ok(designRepository.findByUserId(userId));
-        }
-        return ResponseEntity.ok(designRepository.findAll());
-    }
-
-    @GetMapping("/{id}")
-    public ResponseEntity<DesignProject> getDesignById(@PathVariable String id) {
-        return designRepository.findById(id)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
-    }
-
-    @PostMapping
-    public ResponseEntity<DesignProject> createDesign(@RequestBody DesignProject design) {
-        design.setCreatedAt(Instant.now());
-        design.setUpdatedAt(Instant.now());
-        return ResponseEntity.ok(designRepository.save(design));
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<DesignProject> updateDesign(@PathVariable String id, @RequestBody DesignProject design) {
-        return designRepository.findById(id)
-                .map(existing -> {
-                    design.setId(id);
-                    design.setCreatedAt(existing.getCreatedAt());
-                    design.setUpdatedAt(Instant.now());
-                    return ResponseEntity.ok(designRepository.save(design));
-                })
-                .orElse(ResponseEntity.notFound().build());
-    }
-
-    @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteDesign(@PathVariable String id) {
-        if (designRepository.existsById(id)) {
-            designRepository.deleteById(id);
-            return ResponseEntity.ok(Map.of("message", "Design deleted successfully"));
-        }
-        return ResponseEntity.notFound().build();
-    }
+    private final DesignService designs;
+    private final CurrentUser currentUser;
+    @GetMapping public List<DesignProject> list(Authentication auth) { return designs.list(currentUser.require(auth)); }
+    @GetMapping("/{id}") public DesignProject get(@PathVariable String id, Authentication auth) { return designs.owned(id, currentUser.require(auth)); }
+    @PostMapping @ResponseStatus(HttpStatus.CREATED)
+    public DesignProject create(@Valid @RequestBody DesignProject input, Authentication auth) { return designs.save(null, input, currentUser.require(auth)); }
+    @PutMapping("/{id}") public DesignProject update(@PathVariable String id, @Valid @RequestBody DesignProject input, Authentication auth) { return designs.save(id, input, currentUser.require(auth)); }
+    @DeleteMapping("/{id}") @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable String id, Authentication auth) { designs.delete(id, currentUser.require(auth)); }
 }

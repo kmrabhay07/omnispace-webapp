@@ -2,6 +2,8 @@ import { PlacedFurniture } from './furniture-item.model';
 
 export interface DesignProject {
   id?: string;
+  version?: number;
+  ceilingHeight?: number;
   name: string;
   userId?: string;
   propertyId?: string;

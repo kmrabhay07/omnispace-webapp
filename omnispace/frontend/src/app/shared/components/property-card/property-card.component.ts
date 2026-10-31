@@ -10,7 +10,7 @@ import { Property } from '../../../core/models/property.model';
   template: `
     <div class="property-card">
       <div class="image-wrapper">
-        <img [src]="property.featuredImage || 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9'" [alt]="property.title" loading="lazy">
+        <img [src]="property.featuredImage" *ngIf="property.featuredImage" [alt]="property.title" loading="lazy">
         <span class="badge" [ngClass]="property.propertyType === 'RESIDENTIAL' ? 'badge-residential' : 'badge-commercial'">
           {{ property.category }}
         </span>

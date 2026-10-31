@@ -1,15 +1,8 @@
 package com.omnispace.repository;
-
 import com.omnispace.model.Message;
-import org.springframework.data.mongodb.repository.MongoRepository;
-import org.springframework.stereotype.Repository;
-
 import java.util.List;
-
-@Repository
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.repository.MongoRepository;
 public interface MessageRepository extends MongoRepository<Message, String> {
-    List<Message> findByPropertyIdOrderByTimestampAsc(String propertyId);
-    List<Message> findByPropertyIdAndSenderIdOrderByTimestampAsc(String propertyId, String senderId);
-    List<Message> findAllByOrderByTimestampDesc();
-    List<Message> findBySenderIdOrReceiverIdOrderByTimestampDesc(String senderId, String receiverId);
+    List<Message> findByConversationIdOrderByTimestampDesc(String conversationId, Pageable pageable);
 }

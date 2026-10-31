@@ -1,21 +1,16 @@
+import { inject } from '@angular/core';
 import { HttpInterceptorFn } from '@angular/common/http';
-
+import { catchError, throwError } from 'rxjs';
+import { AuthService } from '../services/auth.service';
+import { environment } from '../../../environments/environment';
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  try {
-    const rawUser = localStorage.getItem('omni_user');
-    if (rawUser) {
-      const user = JSON.parse(rawUser);
-      if (user && user.token && !user.token.startsWith('mock-') && user.token.length > 25) {
-        const cloned = req.clone({
-          setHeaders: {
-            Authorization: `Bearer ${user.token}`
-          }
-        });
-        return next(cloned);
-      }
-    }
-  } catch (e) {
-    console.error('Error attaching auth token to request', e);
-  }
-  return next(req);
+  const auth = inject(AuthService);
+  const isApi = req.url.startsWith(environment.apiUrl + '/') || req.url === environment.apiUrl;
+  const token = isApi && auth.isLoggedIn() ? auth.currentUser()?.token : undefined;
+  return next(token ? req.clone({ setHeaders: { Authorization: `Bearer ${token}` } }) : req).pipe(
+    catchError(error => {
+      if (isApi && error.status === 401) auth.logout();
+      return throwError(() => error);
+    })
+  );
 };

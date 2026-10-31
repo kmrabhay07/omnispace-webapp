@@ -10,6 +10,7 @@ export class FurnitureService {
     // Living Room
     {
       id: 'f-sofa-3',
+      modelUrl: '/models/sofa.glb',
       name: 'Luxury 3-Seater Sofa',
       category: 'Living Room',
       iconSvg: 'sofa',
@@ -21,6 +22,7 @@ export class FurnitureService {
     },
     {
       id: 'f-sofa-l',
+      modelUrl: '/models/sofa.glb',
       name: 'L-Shaped Sectional Sofa',
       category: 'Living Room',
       iconSvg: 'sectional',
@@ -32,6 +34,7 @@ export class FurnitureService {
     },
     {
       id: 'f-coffee-table',
+      modelUrl: '/models/coffee-table.glb',
       name: 'Modern Coffee Table',
       category: 'Living Room',
       iconSvg: 'table-round',
@@ -54,6 +57,7 @@ export class FurnitureService {
     },
     {
       id: 'f-armchair',
+      modelUrl: '/models/armchair.glb',
       name: 'Nordic Accent Armchair',
       category: 'Living Room',
       iconSvg: 'armchair',
@@ -78,6 +82,7 @@ export class FurnitureService {
     // Bedroom
     {
       id: 'f-bed-king',
+      modelUrl: '/models/bed.glb',
       name: 'King Size Upholstered Bed',
       category: 'Bedroom',
       iconSvg: 'bed-king',
@@ -89,6 +94,7 @@ export class FurnitureService {
     },
     {
       id: 'f-bed-queen',
+      modelUrl: '/models/bed.glb',
       name: 'Queen Bed with Storage',
       category: 'Bedroom',
       iconSvg: 'bed-queen',
