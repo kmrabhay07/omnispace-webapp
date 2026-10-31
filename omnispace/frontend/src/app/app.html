@@ -1,38 +1,9 @@
+<a class="skip-link" href="#main-content">Skip to content</a>
 <div class="page-wrapper">
-  <app-navbar></app-navbar>
-
-  <main class="main-content">
-    <router-outlet></router-outlet>
-  </main>
-
+  <app-navbar />
+  <main id="main-content" class="main-content" tabindex="-1"><router-outlet /></main>
   <footer class="app-footer">
-    <div class="container footer-content">
-      <div class="footer-brand">
-        <div class="logo">
-          <i class="fa-solid fa-cube"></i> Omni<span>Space</span>
-        </div>
-        <p>Combining real estate marketplace with interactive 3D interior design & staging tools.</p>
-      </div>
-
-      <div class="footer-links">
-        <div class="link-col">
-          <h4>Explore</h4>
-          <a routerLink="/">Home</a>
-          <a routerLink="/properties">Browse Properties</a>
-          <a routerLink="/designer">3D Interior Studio</a>
-          <a routerLink="/properties/new">List Property</a>
-        </div>
-        <div class="link-col">
-          <h4>Account</h4>
-          <a routerLink="/login">Sign In</a>
-          <a routerLink="/register">Create Account</a><a routerLink="/my-properties">My listings</a><a routerLink="/designs">Saved designs</a>
-        </div>
-      </div>
-    </div>
-    <div class="footer-bottom">
-      <div class="container text-center">
-        &copy; 2026 OmniSpace. All rights reserved.
-      </div>
-    </div>
+    <div class="container footer-content"><div class="footer-brand"><a routerLink="/" class="logo"><i class="fa-solid fa-cube" aria-hidden="true"></i> OmniSpace</a><p>A new perspective on living.<br>A little more room for you.</p></div><div class="footer-links"><div class="link-col"><h2>DISCOVER</h2><a routerLink="/properties">Find a property</a><a routerLink="/designer">The design studio</a><a routerLink="/properties/new">List your space</a></div><div class="link-col"><h2>YOUR OMNISPACE</h2><a routerLink="/my-properties">My listings</a><a routerLink="/designs">Saved designs</a><a routerLink="/chats">Conversations</a><a routerLink="/login">Sign in / Register</a></div></div><div class="footer-note"><span class="footer-asterisk" aria-hidden="true">✳</span><span>SPACES WITH<br>POSSIBILITY.</span></div></div>
+    <div class="container footer-bottom"><span>© {{ year }} OmniSpace</span><span>DISCOVER. IMAGINE. MAKE IT YOURS.</span><a href="#main-content">BACK TO TOP <i class="fa-solid fa-arrow-up" aria-hidden="true"></i></a></div>
   </footer>
 </div>

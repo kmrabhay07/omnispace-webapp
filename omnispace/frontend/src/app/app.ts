@@ -12,4 +12,5 @@ import { NavbarComponent } from './shared/components/navbar/navbar.component';
 })
 export class App {
   title = 'OmniSpace';
+  readonly year = new Date().getFullYear();
 }

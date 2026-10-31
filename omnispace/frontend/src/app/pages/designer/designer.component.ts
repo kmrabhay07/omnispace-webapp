@@ -295,7 +295,7 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Scene
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x070a12);
+    this.scene.background = new THREE.Color(0x19291d);
 
     // Camera
     this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
@@ -850,11 +850,11 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.isNightMode = !this.isNightMode;
     if (this.scene) {
       if (this.isNightMode) {
-        this.scene.background = new THREE.Color(0x020617);
+        this.scene.background = new THREE.Color(0x101912);
         this.ambientLight.intensity = 0.2;
         this.dirLight.intensity = 0.1;
       } else {
-        this.scene.background = new THREE.Color(0x070a12);
+        this.scene.background = new THREE.Color(0x19291d);
         this.ambientLight.intensity = 0.65;
         this.dirLight.intensity = 0.85;
       }
