@@ -4,24 +4,26 @@ import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { PropertyService } from '../../../core/services/property.service';
 import { Property } from '../../../core/models/property.model';
+import { FluidBackdropComponent } from '../../../shared/components/fluid-backdrop/fluid-backdrop.component';
+import { RevealDirective } from '../../../shared/directives/reveal.directive';
 import { PropertyCardComponent } from '../../../shared/components/property-card/property-card.component';
 
 @Component({
   selector: 'app-property-list',
   standalone: true,
-  imports: [CommonModule, FormsModule, PropertyCardComponent],
+  imports: [CommonModule, FormsModule, PropertyCardComponent, FluidBackdropComponent, RevealDirective],
   template: `
     <div class="property-list-page animate-fade-in">
-      <div class="header-banner">
+      <div class="header-banner"><app-fluid-backdrop />
         <div class="container">
-          <h1>Browse Properties</h1>
-          <p>Find residential homes and commercial spaces ready for interactive design</p>
+          <span class="eyebrow">OMNISPACE / THE COLLECTION</span><h1>Find a place <em>to begin.</em></h1>
+          <p>Homes to settle into. Spaces to grow into. A new perspective awaits.</p>
         </div>
       </div>
 
       <div class="container main-layout">
         <!-- FILTER SIDEBAR -->
-        <aside class="filter-sidebar"><div class="filter-group"><label>Currency</label><select [(ngModel)]="currency" (change)="applyFilters()"><option value="">All currencies</option><option>INR</option><option>USD</option><option>EUR</option><option>GBP</option><option>AED</option></select><small>Choose a currency to compare prices.</small></div>
+        <button type="button" class="filter-toggle btn btn-outline" (click)="filtersOpen = !filtersOpen" [attr.aria-expanded]="filtersOpen" aria-controls="property-filters"><i class="fa-solid fa-sliders" aria-hidden="true"></i> {{ filtersOpen ? 'Hide filters' : 'Refine your search' }}</button><aside id="property-filters" class="filter-sidebar" [class.mobile-open]="filtersOpen"><div class="filter-group"><label for="filter-currency">Currency</label><select id="filter-currency" [(ngModel)]="currency" (change)="applyFilters()"><option value="">All currencies</option><option>INR</option><option>USD</option><option>EUR</option><option>GBP</option><option>AED</option></select><small>Choose a currency to compare prices.</small></div>
           <div class="sidebar-header">
             <h3><i class="fa-solid fa-sliders"></i> Filters</h3>
             <button (click)="resetFilters()" class="btn-reset">Reset All</button>
@@ -39,8 +41,8 @@ import { PropertyCardComponent } from '../../../shared/components/property-card/
 
           <!-- Category -->
           <div class="filter-group">
-            <label>Category</label>
-            <select [(ngModel)]="selectedCategory" (change)="applyFilters()">
+            <label for="filter-category">Category</label>
+            <select id="filter-category" [(ngModel)]="selectedCategory" (change)="applyFilters()">
               <option value="">All Categories</option>
               <option value="Apartment">Apartment</option>
               <option value="Villa">Villa</option>
@@ -53,20 +55,20 @@ import { PropertyCardComponent } from '../../../shared/components/property-card/
 
           <!-- Keyword / Location -->
           <div class="filter-group">
-            <label>Location / Keyword</label>
+            <label for="filter-location">Location / Keyword</label>
             <div class="input-with-icon">
               <i class="fa-solid fa-magnifying-glass"></i>
-              <input type="text" [(ngModel)]="searchLocation" (input)="applyFilters()" placeholder="City, neighborhood...">
+              <input id="filter-location" type="text" [(ngModel)]="searchLocation" (input)="applyFilters()" placeholder="City, neighborhood...">
             </div>
           </div>
 
           <!-- Max Price Slider -->
           <div class="filter-group">
             <div class="label-row">
-              <label>Max Price</label>
+              <label for="filter-price">Max Price</label>
               <span class="value-badge">{{ maxPrice >= 100000000 ? 'Any Price' : (maxPrice | number) }}</span>
             </div>
-            <input type="range" min="500000" max="100000000" step="500000" [(ngModel)]="maxPrice" (input)="applyFilters()">
+            <input id="filter-price" type="range" [disabled]="!currency" min="500000" max="100000000" step="500000" [(ngModel)]="maxPrice" (input)="applyFilters()">
           </div>
 
           <!-- Bedrooms -->
@@ -85,8 +87,8 @@ import { PropertyCardComponent } from '../../../shared/components/property-card/
           <div class="results-bar">
             <span>Showing <strong>{{ filteredProperties.length }}</strong> properties</span>
             <div class="sort-wrapper">
-              <label>Sort by:</label>
-              <select [(ngModel)]="sortBy" (change)="applyFilters()">
+              <label for="property-sort">Sort by:</label>
+              <select id="property-sort" [(ngModel)]="sortBy" (change)="applyFilters()">
                 <option value="newest">Newest First</option>
                 <option value="price-asc">Price: Low to High</option>
                 <option value="price-desc">Price: High to Low</option>
@@ -96,7 +98,7 @@ import { PropertyCardComponent } from '../../../shared/components/property-card/
           </div>
 
           <div class="properties-grid" *ngIf="filteredProperties.length > 0; else noPropsState">
-            <app-property-card *ngFor="let p of filteredProperties" [property]="p"></app-property-card>
+            <app-property-card *ngFor="let p of filteredProperties; index as i" [property]="p" [appReveal]="(i % 3) * 60"></app-property-card>
           </div>
 
           <ng-template #noPropsState>
@@ -104,7 +106,7 @@ import { PropertyCardComponent } from '../../../shared/components/property-card/
               <div style="font-size: 2.5rem; color: var(--primary); margin-bottom: 16px;">
                 <i class="fa-solid fa-circle-notch fa-spin"></i>
               </div>
-              <p style="font-size: 1.1rem; color: var(--gray-muted);">Loading properties from database...</p>
+              <p style="font-size: 1.1rem; color: var(--gray-muted);">Finding your next space…</p>
             </div>
             <ng-template #emptyState>
               <div class="empty-state">
@@ -286,7 +288,7 @@ import { PropertyCardComponent } from '../../../shared/components/property-card/
 
     .properties-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
       gap: 28px;
     }
 
@@ -301,9 +303,14 @@ import { PropertyCardComponent } from '../../../shared/components/property-card/
       h3 { font-size: 1.4rem; margin-bottom: 8px; }
       p { color: var(--gray-muted); margin-bottom: 24px; }
     }
+
+    .header-banner{position:relative;isolation:isolate;overflow:hidden;background:#26372d;padding:63px 0 65px;margin:14px 22px 55px;border-radius:22px}.header-banner>.container{position:relative;z-index:1}.header-banner .eyebrow{color:#b5c2a7;font-size:.56rem}.header-banner h1{font-size:clamp(2.8rem,5vw,4.5rem);margin:18px 0;font-weight:400}.header-banner h1 em{font-family:var(--font-editorial);font-weight:400;color:#e6b49b}.header-banner p{font-size:.83rem;color:#b4c0aa}.filter-sidebar{border-radius:18px;padding:27px;border-color:var(--gray-border);box-shadow:var(--shadow-sm)}.filter-sidebar .filter-group label{font-size:.75rem;font-weight:500}.filter-sidebar .filter-group select,.filter-sidebar .filter-group input[type=text]{border-width:1px;font-size:.78rem;padding:12px;background:var(--white)}.filter-sidebar .filter-group small{display:block;font-size:.65rem;color:var(--gray-muted);margin-top:7px}.filter-sidebar .segmented-control{flex-wrap:wrap}.results-bar{font-size:.77rem;gap:16px;flex-wrap:wrap;margin-bottom:26px}.results-bar .sort-wrapper select{font-size:.75rem;background:var(--white)}.main-layout{gap:30px;grid-template-columns:260px minmax(0,1fr)}.grid-container{min-width:0}.properties-grid{gap:23px}.filter-toggle{display:none}.empty-state{padding:70px 25px}.empty-state i{font-size:2.6rem;color:#9aab8c}.empty-state h3{font-family:var(--font-editorial);font-size:2rem;font-weight:400}.empty-state p{font-size:.85rem}.empty-state .btn{font-size:.8rem}.segmented-control button,.pill-selector button{min-height:36px}.grid-container>.btn{margin-top:30px}
+    @media(max-width:992px){.main-layout{grid-template-columns:minmax(0,1fr);gap:24px}.filter-toggle{display:inline-flex;justify-self:start}.filter-sidebar{display:none}.filter-sidebar.mobile-open{display:block;animation:fadeIn .4s var(--ease-out)}.header-banner{margin-bottom:35px}}
+    @media(max-width:600px){.header-banner{margin:8px 14px 30px;padding:40px 0}.header-banner h1{font-size:2.8rem;max-width:280px;line-height:1.05}.header-banner h1 em{display:block}.header-banner p{font-size:.78rem;line-height:1.8;max-width:270px}.properties-grid{grid-template-columns:minmax(0,1fr)}.results-bar{align-items:flex-start}.sort-wrapper{flex-wrap:wrap}.main-layout{padding-bottom:55px}}
   `]
 })
 export class PropertyListComponent implements OnInit {
+  filtersOpen = false;
   propertyService = inject(PropertyService);
   route = inject(ActivatedRoute);
   cdr = inject(ChangeDetectorRef);

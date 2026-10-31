@@ -1,0 +1,69 @@
+<div class="home-page">
+  <section class="hero" aria-labelledby="hero-title">
+    <app-fluid-backdrop />
+    <div class="hero-grain" aria-hidden="true"></div>
+    <div class="hero-layout">
+      <div class="hero-copy">
+        <span class="hero-eyebrow"><span></span> A NEW PERSPECTIVE ON LIVING</span>
+        <h1 id="hero-title">Find a space.<br><em>Make it yours.</em></h1>
+        <p>From the place you fall in love with to the room you imagine. Discover properties and bring your vision to life in 3D.</p>
+        <div class="hero-actions">
+          <a routerLink="/properties" class="btn btn-primary">Explore spaces <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
+          <a routerLink="/designer" class="studio-link"><span class="play-icon"><i class="fa-solid fa-cube" aria-hidden="true"></i></span> Enter the studio</a>
+        </div>
+        <div class="hero-footnote"><span class="fine-line"></span> YOUR SPACE. YOUR POINT OF VIEW.</div>
+      </div>
+      <figure class="hero-visual" appFluidSurface [tilt]="true">
+        <div class="image-arch"><img src="/images/architecture.webp" alt="A modern house opening onto a sunlit garden and pool" width="1800" height="1200" fetchpriority="high"></div>
+        <span class="visual-index">THE ART OF<br>FEELING AT HOME</span>
+        <figcaption class="image-caption"><span class="caption-icon"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></span><div><span>AN OPEN INVITATION</span><strong>Imagine the possibilities.</strong></div><span class="caption-line"></span></figcaption>
+        <div class="orbit-label" aria-hidden="true"><span>SPACE TO LIVE</span><i class="fa-solid fa-asterisk"></i><span>ROOM TO CREATE</span></div>
+      </figure>
+    </div>
+    <div class="hero-bottom"><span>PROPERTY DISCOVERY & INTERIOR DESIGN</span><a href="#discover">TAKE A LOOK AROUND <i class="fa-solid fa-arrow-down" aria-hidden="true"></i></a></div>
+  </section>
+
+  <div class="container search-container">
+    <form class="search-panel" (ngSubmit)="onSearch()" aria-label="Find a property">
+      <div class="search-intro"><span class="eyebrow">YOUR NEXT CHAPTER</span><span>Where will it begin?</span></div>
+      <div class="search-field"><label for="home-location">LOCATION</label><div><i class="fa-solid fa-location-dot" aria-hidden="true"></i><input id="home-location" name="location" [(ngModel)]="searchKeyword" placeholder="City or neighbourhood"></div></div>
+      <div class="search-field"><label for="home-type">SPACE TYPE</label><select id="home-type" name="type" [(ngModel)]="searchType"><option value="ALL">All spaces</option><option value="RESIDENTIAL">Residential</option><option value="COMMERCIAL">Commercial</option></select></div>
+      <button class="search-submit" type="submit" aria-label="Search properties"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
+    </form>
+  </div>
+
+  <section id="discover" class="collection-section container">
+    <div class="section-heading" appReveal><div><span class="eyebrow">THE COLLECTION</span><h2>Spaces for your<br><em>next chapter.</em></h2></div><div class="heading-aside"><p>A new address. A fresh perspective.<br>Find a place to make your own.</p><a routerLink="/properties" class="text-link">Explore all properties <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a></div></div>
+    <div class="properties-grid" *ngIf="!loading && featuredProperties.length; else collectionState">
+      <app-property-card *ngFor="let property of featuredProperties; index as i" [property]="property" [appReveal]="i * 80" />
+    </div>
+    <ng-template #collectionState>
+      <div *ngIf="loading; else emptyCollection" class="properties-grid" aria-busy="true" aria-label="Loading properties"><div class="loading-card" *ngFor="let i of [1,2,3]"><div class="skeleton skeleton-image"></div><div class="skeleton skeleton-line"></div><div class="skeleton skeleton-line short"></div></div></div>
+      <ng-template #emptyCollection><div class="collection-empty" appReveal><div class="empty-mark"><i class="fa-solid fa-house" aria-hidden="true"></i></div><div><h3>{{ error ? 'The collection is taking a moment.' : 'Every great space has a beginning.' }}</h3><p>{{ error ? 'We couldn’t load the latest spaces. Please try again.' : 'Have a place with potential? Give it a place in the collection.' }}</p></div><button *ngIf="error" class="btn btn-outline" (click)="loadProperties()">Try again <i class="fa-solid fa-arrow-rotate-right" aria-hidden="true"></i></button><a *ngIf="!error" routerLink="/properties/new" class="btn btn-outline">List your space <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></div></ng-template>
+    </ng-template>
+  </section>
+
+  <section class="studio-section container" aria-labelledby="studio-heading">
+    <div class="studio-story" appReveal>
+      <div class="room-study" appFluidSurface [tilt]="true" [style.--room-wall]="moods[selectedMood].wall" [style.--room-accent]="moods[selectedMood].accent">
+        <div class="study-top"><span class="eyebrow">A STUDY IN POSSIBILITY</span><span>01 — MATERIAL & MOOD</span></div>
+        <svg class="room-illustration" viewBox="0 0 600 470" role="img" [attr.aria-label]="'Isometric living room palette preview in ' + moods[selectedMood].name">
+          <defs><filter id="room-shadow" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="16" stdDeviation="15" flood-color="#51412b" flood-opacity=".18"/></filter><pattern id="floor-lines" width="40" height="40" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><path d="M0 0V40" stroke="#fff" stroke-opacity=".2"/></pattern></defs>
+          <g filter="url(#room-shadow)"><path d="M65 285 300 420 535 285 300 150Z" fill="#c3ae8c"/><path d="M65 285 300 420 535 285 300 150Z" fill="url(#floor-lines)"/><path d="M65 285V100L300 235V420" fill="var(--room-wall)" class="room-material"/><path d="M65 100 300 235 535 100V285L300 420V235" fill="var(--room-wall)" opacity=".8" class="room-material"/><path d="M65 285 300 420 535 285 300 150Z" fill="#c9b798"/><path d="M65 285 300 420 535 285 300 150Z" fill="url(#floor-lines)"/>
+          <path d="M98 246V140L174 183V289Z" fill="#efe8d8"/><path d="M106 240V156L166 190V275Z" fill="#a5b8aa"/><path d="m137 174 0 85m-31-60 60 34" stroke="#eae4d4" stroke-width="4"/>
+          <path d="m186 291 137 78 145-83-137-78Z" fill="#ede7db"/><path d="m204 292 119 69 126-73-119-68Z" fill="none" stroke="#d6c8b3" stroke-width="2"/>
+          <path d="m272 205 102-59 126 72-102 59Z" fill="#f6eee1"/><path d="m272 205 0 54 126 72v-54Z" fill="#b8a58b"/><path d="m398 277 102-59v54l-102 59Z" fill="#d1bea4"/><path d="m294 217 80-46 106 60-80 47Z" fill="#e4d5bc"/>
+          <path d="m362 167 15-9 99 57-15 9Z" fill="#f6ecdc"/><path d="m362 167v34l99 57v-34Z" fill="#d1bea4"/><path d="m290 219 20-12 16 9-20 12Z" fill="var(--room-accent)" class="room-material"/><path d="m306 228v19l20-12v-19Z" fill="var(--room-accent)" class="room-material"/>
+          <ellipse cx="310" cy="310" rx="58" ry="34" fill="#5e5145"/><path d="M252 300v10a58 34 0 0 0 116 0v-10" fill="#725e48"/><ellipse cx="310" cy="300" rx="58" ry="34" fill="#987e5c"/><ellipse cx="310" cy="296" rx="14" ry="8" fill="#ece6da"/><path d="m300 293 4-18h13l4 18" fill="#d8d2be"/><ellipse cx="310" cy="275" rx="6" ry="3" fill="#a5967c"/>
+          <path d="m145 281 21 12 20-12v35l-20 12-21-12Z" fill="#a48260"/><ellipse cx="166" cy="281" rx="21" ry="12" fill="#c8ad83"/><path d="M165 279V205m0 43-20-18m20 0 20-20" stroke="#52614b" stroke-width="4"/><ellipse cx="144" cy="225" rx="11" ry="23" fill="#6e8265" transform="rotate(-35 144 225)"/><ellipse cx="185" cy="207" rx="11" ry="23" fill="#829478" transform="rotate(35 185 207)"/><ellipse cx="165" cy="200" rx="10" ry="24" fill="#526b4c"/>
+          <path d="m424 137 40-23v45l-40 23Z" fill="#f3ecdf"/><path d="m433 143 22-13v23l-22 13Z" fill="var(--room-accent)" class="room-material"/></g>
+        </svg>
+        <div class="palette-control"><div><span class="eyebrow">PALETTE PREVIEW</span><strong>{{ moods[selectedMood].name }}</strong></div><div class="swatches" role="group" aria-label="Preview room palette"><button *ngFor="let mood of moods; index as i" [style.background]="mood.wall" [class.selected]="selectedMood === i" [attr.aria-pressed]="selectedMood === i" [attr.aria-label]="mood.name" (click)="selectedMood = i"></button></div></div>
+      </div>
+      <div class="studio-copy"><span class="eyebrow">THE OMNISPACE STUDIO</span><h2>A little imagination.<br><em>A whole new room.</em></h2><p>See the potential before you move a thing. Bring in a room photo, arrange furniture in 3D, and find the colours that feel like you.</p><ul><li><span>01</span> Start with your room</li><li><span>02</span> Make space for your ideas</li><li><span>03</span> Save a vision worth sharing</li></ul><a routerLink="/designer" class="btn btn-secondary">Create your space <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a><span class="studio-caption">Your room. Your pace. Your perspective.</span></div>
+    </div>
+  </section>
+
+  <section class="journey-section container" appReveal><span class="eyebrow">THOUGHTFULLY CONNECTED</span><div class="journey-grid"><div><span class="step-number">01 / DISCOVER</span><h3>A place to belong.</h3><p>Explore homes and commercial spaces. Connect directly with the person behind the listing.</p></div><div><span class="step-number">02 / IMAGINE</span><h3>Room for your ideas.</h3><p>Try furniture, materials and layouts in a studio that keeps your creative process flowing.</p></div><div><span class="step-number">03 / MAKE IT YOURS</span><h3>Keep the possibilities.</h3><p>Save your designs to your account and return to your next idea, wherever inspiration finds you.</p></div></div></section>
+  <section class="closing-section" appReveal><div class="container closing-content"><span class="eyebrow">BEGIN SOMETHING BEAUTIFUL</span><h2>Good spaces.<br><em>Great possibilities.</em></h2><a routerLink="/properties/new" class="btn btn-outline">Share your space <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a></div><span class="closing-orbit" aria-hidden="true"></span></section>
+</div>

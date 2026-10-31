@@ -1,0 +1,22 @@
+<header class="navbar-header">
+  <div class="container navbar-container">
+    <a routerLink="/" class="brand-logo" aria-label="OmniSpace home"><span class="logo-symbol" aria-hidden="true"><i class="fa-solid fa-cube"></i></span><span>Omni<span class="brand-accent">Space</span><small>SPACES WITH POSSIBILITY</small></span></a>
+    <nav id="primary-navigation" class="nav-links" [class.open]="mobileOpen()" aria-label="Main navigation">
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}" ariaCurrentWhenActive="page">Discover</a>
+      <a routerLink="/properties" routerLinkActive="active" ariaCurrentWhenActive="page">Properties</a>
+      <a routerLink="/designer" routerLinkActive="active" ariaCurrentWhenActive="page">The studio <span class="nav-dot" aria-hidden="true"></span></a>
+      <a routerLink="/chats" routerLinkActive="active" ariaCurrentWhenActive="page">Conversations</a>
+      <a routerLink="/properties/new" class="mobile-list-link">List your space <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
+    </nav>
+    <div class="nav-actions">
+      <button class="motion-toggle" type="button" (click)="motion.toggle()" [attr.aria-pressed]="!motion.enabled()" [attr.aria-disabled]="motion.systemReduced()" [attr.aria-label]="motion.systemReduced() ? 'Animations reduced by your device setting' : motion.enabled() ? 'Pause animations' : 'Enable animations'" [title]="motion.systemReduced() ? 'Reduced motion follows your device preference' : motion.enabled() ? 'Pause animations' : 'Enable animations'"><span class="motion-bars" [class.paused]="!motion.enabled()" aria-hidden="true"><i></i><i></i><i></i></span></button>
+      <a routerLink="/properties/new" class="list-link">List your space <i class="fa-solid fa-plus" aria-hidden="true"></i></a>
+      <div class="profile-wrapper" *ngIf="auth.currentUser(); else guest">
+        <button type="button" class="profile-toggle" (click)="toggleProfile()" [attr.aria-expanded]="profileOpen()" aria-controls="account-navigation" aria-label="Account navigation"><span>{{ getUserInitial() }}</span><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
+        <div id="account-navigation" class="profile-menu" *ngIf="profileOpen()"><div class="profile-summary"><strong>{{ auth.currentUser()?.name }}</strong><span>{{ auth.currentUser()?.email }}</span></div><a routerLink="/my-properties">My listings <i class="fa-solid fa-house" aria-hidden="true"></i></a><a routerLink="/designs">Saved designs <i class="fa-solid fa-cube" aria-hidden="true"></i></a><a routerLink="/chats">Conversations <i class="fa-regular fa-comment" aria-hidden="true"></i></a><button type="button" (click)="logout()">Sign out <i class="fa-solid fa-arrow-right-from-bracket" aria-hidden="true"></i></button></div>
+      </div>
+      <ng-template #guest><a routerLink="/login" class="btn btn-secondary login-link">Sign in <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></ng-template>
+      <button type="button" class="menu-toggle" (click)="toggleMobile()" [class.open]="mobileOpen()" [attr.aria-expanded]="mobileOpen()" aria-controls="primary-navigation" [attr.aria-label]="mobileOpen() ? 'Close navigation' : 'Open navigation'"><span></span><span></span></button>
+    </div>
+  </div>
+</header>
