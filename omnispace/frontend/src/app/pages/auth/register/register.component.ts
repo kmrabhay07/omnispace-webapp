@@ -33,7 +33,7 @@ export class RegisterComponent implements OnInit {
     this.busy = true; this.error = '';
     this.auth.register({ name: this.name.trim(), email: this.email.trim(), password: this.password }).subscribe({
       next: () => { this.busy = false; this.router.navigateByUrl(this.returnUrl.startsWith('/') && !this.returnUrl.startsWith('//') ? this.returnUrl : '/'); },
-      error: err => { this.busy = false; this.error = err.error?.message || err.message || 'Could not sign in. Please try again.'; this.cdr.markForCheck(); }
+      error: err => { this.busy = false; this.error = err.status === 0 ? 'Unable to connect to OmniSpace. Please try again in a moment. If this continues, contact support.' : (err.error?.message || 'Could not complete your request. Please try again.'); this.cdr.markForCheck(); }
     });
   }
 }
