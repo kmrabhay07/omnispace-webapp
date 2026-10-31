@@ -6,7 +6,7 @@ import org.springframework.web.cors.*;
 @Configuration
 public class CorsConfig {
     @Bean public CorsConfigurationSource corsConfigurationSource(
-            @Value("${app.cors.allowed-origins:http://localhost:4200}") String origins) {
+            @Value("${app.cors.allowed-origins:http://localhost:4200,https://omnispace-webapp-x3xh.vercel.app}") String origins) {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(Arrays.stream(origins.split(",")).map(String::trim).filter(s -> !s.isEmpty()).toList());
         config.setAllowCredentials(false);

@@ -10,7 +10,7 @@ spring:
 
 app:
   cors:
-    allowed-origins: ${ALLOWED_ORIGINS:http://localhost:4200}
+    allowed-origins: ${ALLOWED_ORIGINS:http://localhost:4200,https://omnispace-webapp-x3xh.vercel.app}
   jwt:
     secret: ${JWT_SECRET}
     expiration-ms: 86400000

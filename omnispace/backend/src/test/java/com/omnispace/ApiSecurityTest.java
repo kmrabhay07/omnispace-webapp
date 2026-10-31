@@ -45,6 +45,20 @@ class ApiSecurityTest {
         mvc.perform(options("/api/designs").header("Origin","https://untrusted.invalid")
             .header("Access-Control-Request-Method","GET")).andExpect(status().isForbidden());
     }
+    @Test void deployedFrontendCanPreflightRegistration() throws Exception {
+        mvc.perform(options("/api/auth/register")
+            .header("Origin", "https://omnispace-webapp-x3xh.vercel.app")
+            .header("Access-Control-Request-Method", "POST")
+            .header("Access-Control-Request-Headers", "content-type"))
+            .andExpect(status().isOk())
+            .andExpect(header().string("Access-Control-Allow-Origin", "https://omnispace-webapp-x3xh.vercel.app"));
+    }
+    @Test void lookalikeFrontendIsRejected() throws Exception {
+        mvc.perform(options("/api/auth/register")
+            .header("Origin", "https://omnispace-webapp-x3xh.vercel.app.attacker.invalid")
+            .header("Access-Control-Request-Method", "POST"))
+            .andExpect(status().isForbidden());
+    }
     @Test void legacyMessageApiIsClosed() throws Exception {
         mvc.perform(get("/api/messages")).andExpect(status().isUnauthorized());
     }

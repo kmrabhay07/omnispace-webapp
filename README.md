@@ -43,7 +43,7 @@ GitHub Actions runs both test suites and the production builds. In GitHub Settin
 ## Production configuration and existing data
 
 - Set `JWT_SECRET` and `MONGODB_URI` on the backend.
-- Set `ALLOWED_ORIGINS` to a comma-separated list of the exact trusted frontend origins, such as your production Vercel URL. The default only allows `http://localhost:4200`; arbitrary origins are rejected.
+- Set `ALLOWED_ORIGINS` to a comma-separated list of the exact trusted frontend origins, such as your production Vercel URL. The default allows `http://localhost:4200` and the production origin `https://omnispace-webapp-x3xh.vercel.app`; arbitrary origins are rejected. If Render already defines `ALLOWED_ORIGINS`, that value overrides the defaults: include the production origin there and redeploy the backend.
 - Use HTTPS. Tokens expire after 24 hours. The client clears expired/rejected sessions.
 - Deploy frontend and backend together: chat now uses `/api/conversations`; the old public `/api/messages` routes are closed.
 - Old browser-only sessions are invalidated. Browser-only designs and unsent messages are not silently assigned to a different account.
