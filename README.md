@@ -16,7 +16,7 @@ A property marketplace and interior design studio built with Angular 22, Three.j
 
 Requirements: Java 17, Maven 3.9+, Node 22+, npm, and MongoDB.
 
-1. Start MongoDB (for example, `docker compose up -d mongo`).
+1. Start a local MongoDB instance listening on `localhost:27017`.
 2. Set `JWT_SECRET` to a random secret of at least 32 UTF-8 bytes, for example with `openssl rand -base64 48`.
 3. Set `MONGODB_URI=mongodb://localhost:27017/omnispace` and start the backend:
    `cd omnispace/backend && mvn spring-boot:run`.
