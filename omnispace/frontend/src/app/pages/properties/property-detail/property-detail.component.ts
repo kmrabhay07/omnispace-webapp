@@ -13,7 +13,7 @@ declare const L: any;
       <a routerLink="/properties">← Browse properties</a>
       <p *ngIf="loading" role="status">Loading property…</p><p *ngIf="error" role="alert" class="form-error">{{ error }}</p>
       <ng-container *ngIf="property as p">
-        <header class="page-heading"><div><p class="eyebrow">{{ p.category }} · {{ p.status === 'DRAFT' ? 'PRIVATE DRAFT' : p.location }}</p><h1>{{ p.title }}</h1><p>{{ p.address }}</p></div><strong class="property-price">{{ p.currencySymbol }}{{ p.price | number }}</strong></header>
+        <header class="page-heading"><div><p class="eyebrow">{{ p.category }} · {{ p.status === 'DRAFT' ? 'PRIVATE DRAFT' : p.location }}</p><h1>{{ p.title }}</h1><p>{{ p.address }}</p></div><strong class="property-price">{{ p.price | currency:(p.currency || 'INR'):'symbol':'1.0-2' }}</strong></header>
         <div class="detail-grid">
           <div>
             <img *ngIf="activeImage" [src]="activeImage" [alt]="p.title" class="hero-photo animate-fade-in">

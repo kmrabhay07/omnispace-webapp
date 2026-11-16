@@ -18,7 +18,7 @@ import { readImage } from '../../../core/utils/images';
           <label>Property type<select name="type" [(ngModel)]="model.propertyType"><option value="RESIDENTIAL">Residential</option><option value="COMMERCIAL">Commercial</option></select></label>
           <label>Category<select name="category" [(ngModel)]="model.category"><option *ngFor="let category of categories" [value]="category">{{ category }}</option></select></label>
           <label>Currency<select name="currency" [(ngModel)]="model.currency"><option *ngFor="let c of currencies" [value]="c">{{ c }}</option></select></label>
-          <label>Price<input type="number" name="price" [(ngModel)]="model.price" required min="1"></label>
+          <label>Price<input type="text" inputmode="decimal" name="price" [(ngModel)]="priceInput" pattern="[0-9]+([.][0-9]+)?" required></label>
           <label>City / locality<input name="location" [(ngModel)]="model.location" required maxlength="200"></label>
           <label>Address<input name="address" [(ngModel)]="model.address" maxlength="500"></label>
           <label>Bedrooms<input type="number" name="bedrooms" [(ngModel)]="model.bedrooms" min="0" max="100"></label>
@@ -52,10 +52,12 @@ export class PropertyFormComponent implements OnInit {
   categories=['Apartment','Villa','Penthouse','Office','Retail','Studio']; currencies=['INR','USD','EUR','GBP','AED'];
   amenities=['Parking','Lift','Security','Power backup','Balcony','Gym','Pool','Pet friendly','Water supply','Air conditioning'];
   model: Partial<Property>={title:'',description:'',propertyType:'RESIDENTIAL',category:'Apartment',currency:'INR',price:undefined,location:'',address:'',bedrooms:0,bathrooms:0,areaSqFt:undefined,furnishingStatus:'Unfurnished',amenities:[],images:[],floorPlanImage:'',status:'DRAFT'};
+  priceInput = '';
+
   ngOnInit() {
     if (!this.id) return;
     this.loading=true;
-    this.api.getPropertyById(this.id).subscribe({ next:p=>{this.model={...p,images:[...(p.images ?? [])],amenities:[...(p.amenities ?? [])]};this.loading=false;this.cdr.markForCheck();}, error:()=>{this.loading=false;this.loadError='Could not load this listing.';this.cdr.markForCheck();} });
+    this.api.getPropertyById(this.id).subscribe({ next:p=>{this.priceInput=String(p.price ?? '');this.model={...p,images:[...(p.images ?? [])],amenities:[...(p.amenities ?? [])]};this.loading=false;this.cdr.markForCheck();}, error:()=>{this.loading=false;this.loadError='Could not load this listing.';this.cdr.markForCheck();} });
   }
   toggleAmenity(value:string) { this.model.amenities=this.model.amenities?.includes(value)?this.model.amenities.filter(a=>a!==value):[...(this.model.amenities||[]),value]; }
   removePhoto(index:number) { this.model.images=this.model.images?.filter((_,i)=>i!==index); }
@@ -79,6 +81,8 @@ export class PropertyFormComponent implements OnInit {
     const invalidFields = Object.entries(form.controls)
       .filter(([name, control]) => control.invalid || (name === 'title' && !title) || (name === 'location' && !location))
       .map(([name]) => this.fieldLabels[name] ?? name);
+    const price = Number(this.priceInput);
+    if (!invalidFields.includes('Price') && (!Number.isFinite(price) || price < 1)) invalidFields.push('Price');
     const problems: string[] = [];
     if (invalidFields.length) problems.push(`Check these fields: ${invalidFields.join(', ')}.`);
     if (status === 'PUBLISHED' && !this.model.images?.some(photo => photo.trim())) {
@@ -90,7 +94,7 @@ export class PropertyFormComponent implements OnInit {
       return;
     }
     this.busy=true;this.error='';
-    const payload={...this.model,title,location,status};
+    const payload={...this.model,title,location,price,status};
     (this.id?this.api.updateProperty(this.id,payload):this.api.addProperty(payload)).subscribe({
       next:()=>this.router.navigate(['/my-properties']),
       error:err=>{
