@@ -22,6 +22,11 @@ jobs:
       - name: Test and package backend
         working-directory: omnispace/backend
         run: mvn --batch-mode verify
+      - name: Scan Maven dependencies
+        working-directory: omnispace/backend
+        run: |
+          go install github.com/google/osv-scanner/v2/cmd/osv-scanner@v2.7.1
+          "$(go env GOPATH)/bin/osv-scanner" scan source -r .
       - name: Upload backend test reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -96,20 +101,34 @@ jobs:
           image=omnispace-deploy-backend
           previous_image=$(sudo -n docker compose images -q backend | head -n 1)
           sudo -n docker build --tag "$image" "$build_dir/omnispace/backend"
-          sudo -n docker compose up -d --no-deps --no-build backend
+          sudo -n install -d -m 0750 /logs/omnispace
+          # Compose's resolved config may contain credentials. Keep it in the private temporary directory.
+          umask 077
+          sudo -n docker compose config > "$build_dir/compose-base.yaml"
+          cat > "$build_dir/compose-logs.yaml" <<'COMPOSE'
+          services:
+            backend:
+              environment:
+                OMNISPACE_LOG_FILE: /logs/omnispace.log
+              volumes:
+                - /logs/omnispace:/logs
+          COMPOSE
+          compose=(sudo -n docker compose --project-directory "$PWD" -f "$build_dir/compose-base.yaml" -f "$build_dir/compose-logs.yaml")
+          "${compose[@]}" up -d --no-deps --no-build backend
 
           for attempt in {1..30}; do
-            if curl --fail --silent --max-time 3 http://127.0.0.1:8080/api/properties >/dev/null; then
-              echo "Backend deployed at $revision"
+            if curl --fail --silent --max-time 3 http://127.0.0.1:8080/api/properties >/dev/null \
+              && sudo -n test -s /logs/omnispace/omnispace.log; then
+              echo "Backend deployed at $revision with persistent logs in /logs/omnispace"
               exit 0
             fi
             sleep 2
           done
 
-          sudo -n docker compose logs --tail=60 backend
+          "${compose[@]}" logs --tail=60 backend
           if [[ -n "$previous_image" ]]; then
             sudo -n docker tag "$previous_image" "$image"
-            sudo -n docker compose up -d --no-deps --no-build --force-recreate backend
+            "${compose[@]}" up -d --no-deps --no-build --force-recreate backend
           fi
           exit 1
           REMOTE

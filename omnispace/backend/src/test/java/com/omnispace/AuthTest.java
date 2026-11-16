@@ -6,7 +6,6 @@ import com.omnispace.repository.UserRepository;
 import com.omnispace.security.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.*;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -20,14 +19,27 @@ class AuthTest {
         assertThatThrownBy(() -> controller.login(input)).isInstanceOf(BadCredentialsException.class);
         verifyNoInteractions(tokens);
     }
-    @Test void registrationReturnsServerIdentityAndToken() {
-        Authentication authentication=new UsernamePasswordAuthenticationToken("user@example.com","ignored");
-        User user=OwnershipTest.user("database-user");user.setEmail("user@example.com");
-        when(manager.authenticate(any())).thenReturn(authentication);when(current.require(authentication)).thenReturn(user);
-        when(tokens.generateToken(authentication)).thenReturn("server-signed-token");
-        AuthRequest.Register input=new AuthRequest.Register();input.setName("User");input.setEmail("USER@example.com");input.setPassword("strongpassword");
-        AuthResponse response=controller.register(input);
-        assertThat(response.getId()).isEqualTo("database-user");assertThat(response.getToken()).isEqualTo("server-signed-token");
-        verify(users).existsByEmailIgnoreCase("user@example.com");
+    @Test void registrationNormalizesEmailWithoutIssuingSession() {
+        AuthRequest.Register input = registration();
+        when(encoder.encode("strongpassword")).thenReturn("hash");
+        controller.register(input);
+        verify(users).insert(argThat((User user) -> user.getEmail().equals("user@example.com")
+            && user.getRole().equals("USER") && user.getPassword().equals("hash")));
+        verifyNoInteractions(manager, tokens);
+    }
+
+    @Test void duplicateRegistrationDoesNotReplaceAccountOrIssueSession() {
+        when(users.existsByEmailIgnoreCase("user@example.com")).thenReturn(true);
+        controller.register(registration());
+        verify(users, never()).insert(any(User.class));
+        verifyNoInteractions(manager, tokens);
+    }
+
+    private AuthRequest.Register registration() {
+        AuthRequest.Register input = new AuthRequest.Register();
+        input.setName("User");
+        input.setEmail("USER@example.com");
+        input.setPassword("strongpassword");
+        return input;
     }
 }

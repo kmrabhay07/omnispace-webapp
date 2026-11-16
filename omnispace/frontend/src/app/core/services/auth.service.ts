@@ -37,9 +37,9 @@ export class AuthService {
     if (validSession(this.currentUser())) return true;
     this.logout(); return false;
   }
-  register(data: { name: string; email: string; password: string }): Observable<AuthResponse> {
+  register(data: { name: string; email: string; password: string }): Observable<void> {
     this.logout();
-    return this.http.post<AuthResponse>(`${this.apiUrl}/register`, data).pipe(tap(res => this.accept(res)));
+    return this.http.post<void>(`${this.apiUrl}/register`, data);
   }
   login(data: { email: string; password: string }): Observable<AuthResponse> {
     this.logout();

@@ -1,6 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { tap } from 'rxjs';
+import { map, tap } from 'rxjs';
 import { Property } from '../models/property.model';
 import { environment } from '../../../environments/environment';
 @Injectable({ providedIn: 'root' })
@@ -10,6 +10,10 @@ export class PropertyService {
   propertiesSignal = signal<Property[]>([]);
   getProperties(page = 0, filters: Record<string, string | number> = {}) {
     return this.http.get<Property[]>(this.apiUrl, { params: { page, ...filters } }).pipe(
+      map(list => list.map(property => ({
+        ...property,
+        featuredImage: property.featuredImage || `${this.apiUrl}/${encodeURIComponent(property.id)}/cover`
+      }))),
       tap(list => { if (page === 0) this.propertiesSignal.set(list); })
     );
   }

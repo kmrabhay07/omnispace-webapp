@@ -32,7 +32,11 @@ export class RegisterComponent implements OnInit {
     if (this.busy) return;
     this.busy = true; this.error = '';
     this.auth.register({ name: this.name.trim(), email: this.email.trim(), password: this.password }).subscribe({
-      next: () => { this.busy = false; this.router.navigateByUrl(this.returnUrl.startsWith('/') && !this.returnUrl.startsWith('//') ? this.returnUrl : '/'); },
+      next: () => {
+        this.busy = false;
+        const returnUrl = this.returnUrl.startsWith('/') && !this.returnUrl.startsWith('//') ? this.returnUrl : '/';
+        this.router.navigate(['/login'], { queryParams: { returnUrl } });
+      },
       error: err => { this.busy = false; this.error = err.status === 0 ? 'Unable to connect to OmniSpace. Please try again in a moment. If this continues, contact support.' : (err.error?.message || 'Could not complete your request. Please try again.'); this.cdr.markForCheck(); }
     });
   }

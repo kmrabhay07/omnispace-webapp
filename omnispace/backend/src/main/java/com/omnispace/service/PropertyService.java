@@ -40,10 +40,15 @@ public class PropertyService {
             default -> Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
         };
         Query query = new Query(new Criteria().andOperator(clauses)).with(PageRequest.of(page, 24, order));
-        query.fields().exclude("images").exclude("floorPlanImage");
+        query.fields().exclude("images").exclude("floorPlanImage").exclude("featuredImage");
         return mongoTemplate.find(query, Property.class);
     }
     public List<Property> mine(User user) { return properties.findByOwnerIdOrderByUpdatedAtDesc(user.getId()); }
+    public Optional<String> publicCover(String id) {
+        Query query = Query.query(Criteria.where("id").is(id).and("status").is("PUBLISHED"));
+        query.fields().include("featuredImage");
+        return Optional.ofNullable(mongoTemplate.findOne(query, Property.class)).map(Property::getFeaturedImage);
+    }
     public Property get(String id) {
         return properties.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Property not found"));
     }

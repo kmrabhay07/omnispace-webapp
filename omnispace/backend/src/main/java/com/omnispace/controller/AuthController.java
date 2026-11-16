@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.authentication.*;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -26,18 +27,22 @@ public class AuthController {
     public AuthResponse login(@Valid @RequestBody AuthRequest.Login input) {
         return authenticate(input.getEmail().trim().toLowerCase(Locale.ROOT), input.getPassword());
     }
-    @PostMapping("/register") @ResponseStatus(HttpStatus.CREATED)
-    public AuthResponse register(@Valid @RequestBody AuthRequest.Register input) {
+    @PostMapping("/register") @ResponseStatus(HttpStatus.ACCEPTED)
+    public void register(@Valid @RequestBody AuthRequest.Register input) {
         String email = input.getEmail().trim().toLowerCase(Locale.ROOT);
         if (input.getPassword().getBytes(StandardCharsets.UTF_8).length > 72)
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Password must be at most 72 UTF-8 bytes");
-        if (users.existsByEmailIgnoreCase(email))
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email is already registered");
+        String passwordHash = passwordEncoder.encode(input.getPassword());
+        if (users.existsByEmailIgnoreCase(email)) return;
+
         User user = new User();
         user.setName(input.getName().trim()); user.setEmail(email);
-        user.setPassword(passwordEncoder.encode(input.getPassword())); user.setRole("USER");
-        users.save(user);
-        return authenticate(email, input.getPassword());
+        user.setPassword(passwordHash); user.setRole("USER");
+        try {
+            users.insert(user);
+        } catch (DuplicateKeyException ignored) {
+            // A concurrent registration already created the account.
+        }
     }
     @GetMapping("/me")
     public AuthResponse me(Authentication authentication) {
