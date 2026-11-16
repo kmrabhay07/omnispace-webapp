@@ -43,7 +43,7 @@ public class LogArchiveCleanup {
             int removed = 0;
             for (Path path : matching) {
                 var match = archive.matcher(path.getFileName().toString());
-                if (match.matches() && LocalDateTime.parse(match.group(1), HOUR).plusHours(1)
+                if (match.matches() && LocalDateTime.parse(match.group(1), HOUR)
                         .toInstant(ZoneOffset.UTC).compareTo(cutoff) <= 0 && Files.deleteIfExists(path)) {
                     removed++;
                 }

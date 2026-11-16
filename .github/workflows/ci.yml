@@ -117,8 +117,9 @@ jobs:
           "${compose[@]}" up -d --no-deps --no-build backend
 
           for attempt in {1..30}; do
-            if curl --fail --silent --max-time 3 http://127.0.0.1:8080/api/properties >/dev/null; then
-              echo "Backend deployed at $revision"
+            if curl --fail --silent --max-time 3 http://127.0.0.1:8080/api/properties >/dev/null \
+              && sudo -n test -s /logs/omnispace/omnispace.log; then
+              echo "Backend deployed at $revision with persistent logs in /logs/omnispace"
               exit 0
             fi
             sleep 2
