@@ -89,7 +89,10 @@ public class PropertyService {
         ImageData.validate(input.getFloorPlanImage());
         p.setTitle(input.getTitle().trim()); p.setDescription(input.getDescription());
         p.setPropertyType(input.getPropertyType()); p.setCategory(input.getCategory()); p.setPrice(input.getPrice());
-        p.setCurrency(input.getCurrency()); p.setCurrencySymbol(Map.of("INR","?","USD","$","EUR","?","GBP","�","AED","?.?").get(input.getCurrency()));
+        p.setCurrency(input.getCurrency());
+        p.setCurrencySymbol(Map.of(
+            "INR", "\u20B9", "USD", "$", "EUR", "\u20AC", "GBP", "\u00A3", "AED", "\u062F.\u0625"
+        ).get(input.getCurrency()));
         p.setLocation(input.getLocation().trim()); p.setAddress(input.getAddress());
         p.setLatitude(input.getLatitude()); p.setLongitude(input.getLongitude());
         p.setBedrooms(input.getBedrooms()); p.setBathrooms(input.getBathrooms()); p.setAreaSqFt(input.getAreaSqFt());
