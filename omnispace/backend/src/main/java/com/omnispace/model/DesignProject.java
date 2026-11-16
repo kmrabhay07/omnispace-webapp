@@ -22,7 +22,7 @@ public class DesignProject {
     @Pattern(regexp = "#[0-9A-Fa-f]{6}") private String floorColor = "#E2D4C3";
     @NotNull @Pattern(regexp = "WOOD|TILE|CARPET|CONCRETE") private String floorTexture = "WOOD";
     @Size(max = 700000) private String roomPhoto;
-    @Size(max = 100) @Valid private List<PlacedFurniture> placedFurniture = new ArrayList<>();
+    @Size(max = 100) @Valid private List<@NotNull PlacedFurniture> placedFurniture = new ArrayList<>();
     private Instant createdAt;
     private Instant updatedAt;
     @Data

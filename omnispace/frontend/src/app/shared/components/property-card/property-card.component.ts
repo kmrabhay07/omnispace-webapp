@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { Property } from '../../../core/models/property.model';
@@ -21,7 +21,14 @@ import { FluidSurfaceDirective } from '../../directives/fluid-surface.directive'
     :host{display:block;min-width:0;height:100%}.property-card{height:100%;background:var(--white);border:1px solid var(--gray-border);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;transition:transform .65s var(--ease-out),box-shadow .65s var(--ease-out),border-color .5s}.property-card:hover{transform:translateY(-6px);box-shadow:var(--shadow-hover);border-color:#ced2c2}.image-wrapper{position:relative;display:block;aspect-ratio:1.45;overflow:hidden;background:#e8e8de}.image-wrapper img{display:block;width:100%;height:100%;object-fit:cover;transition:transform 1.2s var(--ease-out),filter 1s}.property-card:hover .image-wrapper img{transform:scale(1.055);filter:saturate(1.05)}.image-wrapper::after{content:'';position:absolute;inset:40% 0 0;background:linear-gradient(transparent,#162a2022);pointer-events:none}.category-label{position:absolute;top:16px;left:16px;padding:6px 12px;border:1px solid #ffffffa0;background:#fffefaeb;backdrop-filter:blur(8px);border-radius:999px;font-size:.61rem;letter-spacing:.04em;color:#43513c;z-index:1}.image-arrow{position:absolute;bottom:16px;right:16px;width:35px;height:35px;border-radius:50%;background:#fffefaee;display:grid;place-items:center;font-size:.68rem;z-index:1;transform:translateY(8px);opacity:0;transition:transform .5s var(--ease-out),opacity .3s}.property-card:hover .image-arrow,.property-card:focus-within .image-arrow{transform:translateY(0);opacity:1}.image-placeholder{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:radial-gradient(at 30% 30%,#ece0d1,transparent 70%),#e0e6d7;color:#7b8b70}.image-placeholder>i{font-size:2rem;font-weight:400}.image-placeholder>span{font-family:var(--font-editorial);font-size:1.3rem}.card-body{padding:23px;flex:1;display:flex;flex-direction:column}.location{font-size:.62rem;color:#87907d;display:flex;align-items:center;gap:7px;letter-spacing:.03em}.location i{font-size:.6rem}h3{font-size:1.45rem;line-height:1.2;letter-spacing:-.04em;margin:12px 0}h3 a:hover{color:var(--primary)}.specs{display:flex;gap:12px;flex-wrap:wrap;font-size:.68rem;color:#7a8273;margin:4px 0 23px}.specs>span+span::before{content:'·';margin-right:12px;color:#b4b9ab}.card-bottom{border-top:1px solid var(--gray-border);padding-top:18px;margin-top:auto}.price{font-family:var(--font-heading);font-size:1.14rem;letter-spacing:-.035em}@media(hover:none){.property-card:hover{transform:none}.image-arrow{opacity:1;transform:none}}@media(max-width:600px){h3{font-size:1.6rem}.card-body{padding:24px}.location{font-size:.68rem}.specs{font-size:.75rem}.image-wrapper{aspect-ratio:1.5}}
   `]
 })
-export class PropertyCardComponent {
+export class PropertyCardComponent implements OnChanges {
   @Input({ required: true }) property!: Property;
   imageFailed = false;
+
+  ngOnChanges(changes: SimpleChanges) {
+    const property = changes['property'];
+    if (property?.previousValue?.featuredImage !== property?.currentValue?.featuredImage) {
+      this.imageFailed = false;
+    }
+  }
 }
