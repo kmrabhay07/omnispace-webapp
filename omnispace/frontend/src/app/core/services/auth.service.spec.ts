@@ -6,7 +6,6 @@ import { authInterceptor } from '../interceptors/auth.interceptor';
 import { environment } from '../../../environments/environment';
 describe('Authentication', () => {
   let http: HttpTestingController; let auth: AuthService;
-  const token = () => 'header.' + btoa(JSON.stringify({exp:Math.floor(Date.now()/1000)+3600})) + '.signature';
   beforeEach(() => {
     localStorage.clear();
     TestBed.configureTestingModule({providers:[provideHttpClient(withInterceptors([authInterceptor])),provideHttpClientTesting()]});
@@ -24,10 +23,10 @@ describe('Authentication', () => {
     http.expectOne(environment.apiUrl+'/auth/register').flush({},{status:409,statusText:'Conflict'});
     expect(auth.isLoggedIn()).toBe(false);
   });
-  it('uses server identity and JWT for registration', () => {
+  it('does not create a session when registration is accepted', () => {
     auth.register({name:'User',email:'user@example.com',password:'password'}).subscribe();
-    http.expectOne(environment.apiUrl+'/auth/register').flush({id:'database-id',name:'User',email:'user@example.com',role:'USER',token:token()});
-    expect(auth.currentUser()?.id).toBe('database-id');expect(auth.isLoggedIn()).toBe(true);
+    http.expectOne(environment.apiUrl+'/auth/register').flush(null,{status:202,statusText:'Accepted'});
+    expect(auth.currentUser()).toBeNull();expect(auth.isLoggedIn()).toBe(false);
   });
   it('rejects tokenless legacy sessions', () => {
     localStorage.setItem('omni_user',JSON.stringify({id:'local-user',name:'Legacy'}));

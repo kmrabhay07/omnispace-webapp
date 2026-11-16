@@ -4,9 +4,8 @@ server:
 spring:
   application:
     name: omnispace-backend
-  data:
-    mongodb:
-      uri: ${SPRING_DATA_MONGODB_URI:${MONGODB_URI:${MONGO_DB_URI:${MONGO_URI:mongodb://localhost:27017/omnispace}}}}
+  mongodb:
+    uri: ${SPRING_DATA_MONGODB_URI:${MONGODB_URI:${MONGO_DB_URI:${MONGO_URI:mongodb://localhost:27017/omnispace}}}}
 
 app:
   cors:

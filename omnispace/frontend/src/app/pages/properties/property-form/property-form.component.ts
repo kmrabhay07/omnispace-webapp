@@ -29,7 +29,7 @@ import { readImage } from '../../../core/utils/images';
           <label>Longitude (optional)<input type="number" name="longitude" [(ngModel)]="model.longitude" min="-180" max="180" step="any"></label>
         </div>
         <label>Description<textarea name="description" [(ngModel)]="model.description" maxlength="10000" rows="5"></textarea></label>
-        <label>Public contact phone (optional)<input name="contact" [(ngModel)]="model.ownerContact" maxlength="100" placeholder="Only add details you want displayed publicly"></label>
+        <label>Private contact phone (optional)<input name="contact" [(ngModel)]="model.ownerContact" maxlength="100" placeholder="Visible only to you"></label>
         <fieldset><legend>Amenities actually available</legend><div class="amenity-options"><label *ngFor="let a of amenities"><input type="checkbox" [checked]="model.amenities?.includes(a)" (change)="toggleAmenity(a)"> {{ a }}</label></div></fieldset>
         <fieldset><legend>Property photos</legend><p>Add at least one photo to publish. Upload up to 8 JPG, PNG or WebP photos, up to 10 MB each. The first is your cover.</p>
           <input type="file" multiple accept="image/jpeg,image/png,image/webp" (change)="uploadPhotos($event)" [disabled]="uploading" aria-label="Upload property photos">
