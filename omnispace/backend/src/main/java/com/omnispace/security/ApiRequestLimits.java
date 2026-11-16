@@ -13,6 +13,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.util.UrlPathHelper;
 
 public final class ApiRequestLimits extends OncePerRequestFilter {
     private static final long WINDOW = Duration.ofMinutes(1).toNanos();
@@ -24,7 +25,7 @@ public final class ApiRequestLimits extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
-        String path = request.getRequestURI().substring(request.getContextPath().length());
+        String path = UrlPathHelper.defaultInstance.getPathWithinApplication(request);
         String method = request.getMethod();
         Budget budget = null;
         int maxBody = 0;
@@ -34,7 +35,7 @@ public final class ApiRequestLimits extends OncePerRequestFilter {
         } else if ("POST".equals(method) && "/api/auth/register".equals(path)) {
             budget = signup;
             maxBody = 8192;
-        } else if ("GET".equals(method) && matches(path, "/api/properties")) {
+        } else if (("GET".equals(method) || "HEAD".equals(method)) && matches(path, "/api/properties")) {
             budget = browse;
         } else if (("POST".equals(method) || "PUT".equals(method))
                 && (matches(path, "/api/properties") || matches(path, "/api/designs"))) {
