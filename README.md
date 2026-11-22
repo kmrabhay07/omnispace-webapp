@@ -28,7 +28,7 @@ Doors/windows, custom room polygons, collision warnings, budgets, sharing and AI
 
 Requirements: Java 17, Maven 3.9+, Node 22+, npm, and MongoDB.
 
-1. Start MongoDB (for example, `docker compose up -d mongo`).
+1. Start a local MongoDB instance listening on `localhost:27017`.
 2. Set `JWT_SECRET` to a random secret of at least 32 UTF-8 bytes, for example with `openssl rand -base64 48`.
 3. Set `MONGODB_URI=mongodb://localhost:27017/omnispace` and start the backend:
    `cd omnispace/backend && mvn spring-boot:run`.
@@ -64,7 +64,6 @@ Production Angular now uses a same-origin `/api` gateway. Vercel requires server
 - Legacy database listings without a persisted `status` are excluded from public search. An owner with the correct database `ownerId` can review, replace placeholder images, and republish them from **My listings**. Listings with fabricated legacy owner IDs require an administrator to verify and repair ownership; do not infer ownership from public name/contact fields.
 - Old property-wide message records are retained in MongoDB but are not surfaced in private conversations. They may contain simulated owner replies and cannot safely be assigned to a conversation automatically.
 - Photos are compressed in the browser and persisted with their owning record: at most 8 property photos, one floor plan, one room reference and 5 furniture photos per design; each encoded image is limited to 700,000 characters. This keeps records below MongoDB's document limit. For larger media collections, move binaries to authenticated object storage.
-- Review existing data and create the indexes in `omnispace/backend/mongo-indexes.js` before production rollout. The script does not change ownership, publish legacy records, or delete data.
 - New GLB assets are original project assets. Rebuild them with `node tools/generate-furniture.mjs` from the frontend directory.
 
 ## API boundaries

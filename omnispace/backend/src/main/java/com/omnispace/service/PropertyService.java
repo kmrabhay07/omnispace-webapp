@@ -40,10 +40,15 @@ public class PropertyService {
             default -> Sort.by(Sort.Order.desc("createdAt"), Sort.Order.desc("id"));
         };
         Query query = new Query(new Criteria().andOperator(clauses)).with(PageRequest.of(page, 24, order));
-        query.fields().exclude("images").exclude("floorPlanImage");
+        query.fields().exclude("images").exclude("floorPlanImage").exclude("featuredImage");
         return mongoTemplate.find(query, Property.class);
     }
     public List<Property> mine(User user) { return properties.findByOwnerIdOrderByUpdatedAtDesc(user.getId()); }
+    public Optional<String> publicCover(String id) {
+        Query query = Query.query(Criteria.where("id").is(id).and("status").is("PUBLISHED"));
+        query.fields().include("featuredImage");
+        return Optional.ofNullable(mongoTemplate.findOne(query, Property.class)).map(Property::getFeaturedImage);
+    }
     public Property get(String id) {
         return properties.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Property not found"));
     }
@@ -73,12 +78,21 @@ public class PropertyService {
     public void delete(String id, User user) { properties.delete(owned(id, user)); }
     private void apply(Property p, PropertyRequest input) {
         List<String> images = input.getImages() == null ? List.of() : input.getImages();
-        images.forEach(ImageData::validate); ImageData.validate(input.getFloorPlanImage());
         if ("PUBLISHED".equals(input.getStatus()) && images.isEmpty())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Add at least one property photo before publishing");
+        for (String image : images) {
+            if (image == null || image.isBlank()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Remove empty property photos and upload them again");
+            }
+            ImageData.validate(image);
+        }
+        ImageData.validate(input.getFloorPlanImage());
         p.setTitle(input.getTitle().trim()); p.setDescription(input.getDescription());
         p.setPropertyType(input.getPropertyType()); p.setCategory(input.getCategory()); p.setPrice(input.getPrice());
-        p.setCurrency(input.getCurrency()); p.setCurrencySymbol(Map.of("INR","₹","USD","$","EUR","€","GBP","£","AED","د.إ").get(input.getCurrency()));
+        p.setCurrency(input.getCurrency());
+        p.setCurrencySymbol(Map.of(
+            "INR", "\u20B9", "USD", "$", "EUR", "\u20AC", "GBP", "\u00A3", "AED", "\u062F.\u0625"
+        ).get(input.getCurrency()));
         p.setLocation(input.getLocation().trim()); p.setAddress(input.getAddress());
         p.setLatitude(input.getLatitude()); p.setLongitude(input.getLongitude());
         p.setBedrooms(input.getBedrooms()); p.setBathrooms(input.getBathrooms()); p.setAreaSqFt(input.getAreaSqFt());

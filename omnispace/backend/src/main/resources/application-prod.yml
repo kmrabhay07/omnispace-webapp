@@ -4,9 +4,8 @@ server:
 spring:
   application:
     name: omnispace-backend
-  data:
-    mongodb:
-      uri: ${SPRING_DATA_MONGODB_URI:${MONGODB_URI:${MONGO_DB_URI:${MONGO_URI:mongodb://localhost:27017/omnispace}}}}
+  mongodb:
+    uri: ${SPRING_DATA_MONGODB_URI:${MONGODB_URI:${MONGO_DB_URI:${MONGO_URI:mongodb://localhost:27017/omnispace}}}}
 
 app:
   cors:
@@ -16,6 +15,15 @@ app:
     expiration-ms: 86400000
 
 logging:
+  file:
+    name: ${OMNISPACE_LOG_FILE:}
+  logback:
+    rollingpolicy:
+      file-name-pattern: "${OMNISPACE_LOG_FILE:omnispace.log}.%d{yyyy-MM-dd_HH,UTC}.%i.gz"
+      max-file-size: 10MB
+      max-history: 23
+      total-size-cap: 250MB
+      clean-history-on-start: true
   level:
     root: INFO
     com.omnispace: INFO

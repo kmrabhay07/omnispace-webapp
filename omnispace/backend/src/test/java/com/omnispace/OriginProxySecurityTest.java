@@ -7,8 +7,8 @@ import com.omnispace.security.*;
 import com.omnispace.service.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -22,11 +22,11 @@ import static org.mockito.Mockito.*;
 class OriginProxySecurityTest {
     static final String SECRET="test-only-origin-key-not-a-real-secret-12345";
     @Autowired MockMvc mvc;
-    @MockBean PropertyService properties;
-    @MockBean DesignService designs;
-    @MockBean UserRepository users;
-    @MockBean UserDetailsServiceImpl userDetails;
-    @MockBean JwtTokenProvider tokens;
+    @MockitoBean PropertyService properties;
+    @MockitoBean DesignService designs;
+    @MockitoBean UserRepository users;
+    @MockitoBean UserDetailsServiceImpl userDetails;
+    @MockitoBean JwtTokenProvider tokens;
 
     @Test void directOriginRequestsCannotReachPublicOrPrivateControllers() throws Exception {
         for(String path:new String[]{"/api/properties","/api/designs"})

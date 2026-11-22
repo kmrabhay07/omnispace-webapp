@@ -34,7 +34,26 @@ class OwnershipTest {
     @Test void publicationRequiresRealUploadedPhoto() {
         PropertyRequest input = new PropertyRequest(); input.setStatus("PUBLISHED");
         assertThatThrownBy(() -> service.create(input,owner)).isInstanceOf(ResponseStatusException.class);
+        input.setImages(List.of(" "));
+        assertThatThrownBy(() -> service.create(input,owner))
+            .isInstanceOf(ResponseStatusException.class).hasMessageContaining("empty property photos");
         verify(properties,never()).save(any());
+    }
+    @Test void ownerCanPublishDraftWithPhotoAndWithoutFloorPlan() {
+        when(properties.findById("p1")).thenReturn(Optional.of(property("DRAFT")));
+        when(properties.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        PropertyRequest input = new PropertyRequest();
+        input.setTitle("Home");
+        input.setLocation("Bengaluru");
+        input.setCurrency("INR");
+        input.setStatus("PUBLISHED");
+        input.setImages(List.of("data:image/webp;base64,AAAA"));
+
+        Property saved = service.update("p1", input, owner);
+
+        assertThat(saved.getStatus()).isEqualTo("PUBLISHED");
+        assertThat(saved.getFeaturedImage()).isEqualTo(input.getImages().get(0));
+        assertThat(saved.getFloorPlanImage()).isNull();
     }
     @Test void createdListingUsesAuthenticatedOwnerAndExplicitAmenities() {
         PropertyRequest input = new PropertyRequest(); input.setTitle("Home"); input.setLocation("Bengaluru");

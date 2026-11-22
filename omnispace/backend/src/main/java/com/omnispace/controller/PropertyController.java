@@ -1,5 +1,11 @@
 package com.omnispace.controller;
 import com.omnispace.dto.PropertyRequest;
+import com.omnispace.dto.PublicProperty;
+import com.omnispace.model.User;
+import com.omnispace.service.ImageData;
+import org.springframework.http.CacheControl;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.server.ResponseStatusException;
 import com.omnispace.model.*;
 import com.omnispace.service.PropertyService;
 import com.omnispace.security.CurrentUser;
@@ -16,16 +22,27 @@ public class PropertyController {
     private final PropertyService properties;
     private final CurrentUser currentUser;
     @GetMapping
-    public List<Property> list(@RequestParam(required=false) String type, @RequestParam(required=false) String category,
+    public List<PublicProperty> list(@RequestParam(required=false) String type, @RequestParam(required=false) String category,
             @RequestParam(required=false) String location, @RequestParam(required=false) Double minPrice,
             @RequestParam(required=false) Double maxPrice, @RequestParam(required=false) Integer bedrooms,
             @RequestParam(defaultValue="0") int page, @RequestParam(defaultValue="newest") String sort,
             @RequestParam(required=false) String currency) {
-        return properties.findFiltered(type, category, location, minPrice, maxPrice, bedrooms, page, sort, currency);
+        return properties.findFiltered(type, category, location, minPrice, maxPrice, bedrooms, page, sort, currency)
+            .stream().map(property -> PublicProperty.from(property, false)).toList();
     }
     @GetMapping("/mine") public List<Property> mine(Authentication auth) { return properties.mine(currentUser.require(auth)); }
-    @GetMapping("/{id}") public Property get(@PathVariable String id, Authentication auth) {
-        return properties.read(id, auth == null ? null : currentUser.require(auth));
+    @GetMapping("/{id}") public ResponseEntity<?> get(@PathVariable String id, Authentication auth) {
+        User user = auth == null ? null : currentUser.require(auth);
+        Property property = properties.read(id, user);
+        Object body = user != null && user.getId().equals(property.getOwnerId())
+            ? property : PublicProperty.from(property, true);
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(body);
+    }
+    @GetMapping("/{id}/cover")
+    public ResponseEntity<byte[]> cover(@PathVariable String id) {
+        ImageData.Image cover = properties.publicCover(id).flatMap(ImageData::decode)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cover not found"));
+        return ResponseEntity.ok().cacheControl(CacheControl.noCache()).contentType(cover.type()).body(cover.bytes());
     }
     @PostMapping @ResponseStatus(HttpStatus.CREATED)
     public Property create(@Valid @RequestBody PropertyRequest input, Authentication auth) { return properties.create(input, currentUser.require(auth)); }
