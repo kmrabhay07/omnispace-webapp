@@ -647,3 +647,35 @@
 .designer-layout{height:calc(100dvh - 88px);min-height:660px}.designer-toolbar{border-bottom:1px solid #8d9f7e30;box-shadow:0 8px 25px #0b190d1c}.designer-toolbar .view-toggle button,.sidebar-tabs button,.tool-btn,.catalog-card,.upload-card{transition:background .35s var(--ease-out),border-color .35s,box-shadow .35s,transform .4s var(--ease-out)}.designer-toolbar .view-toggle button.active{box-shadow:0 3px 16px #a97a4730}.studio-intro{position:relative;overflow:hidden}.studio-intro::after{content:'';position:absolute;width:150px;height:150px;right:-50px;top:-40px;border:1px solid #c4d5b523;border-radius:50%;box-shadow:0 0 0 20px #c4d5b508,0 0 0 40px #c4d5b505;pointer-events:none}.studio-intro h2{font-family:var(--font-editorial);font-size:29px;font-weight:400;max-width:240px}.upload-card:hover{transform:translateY(-2px);box-shadow:0 10px 25px #07170926;border-color:#c3aa86;background:#344632}.catalog-card:hover{transform:translateY(-3px);box-shadow:0 10px 20px #10201544}.viewport-label,.viewport-hints .hint-pill,.selected-item-toolbar{backdrop-filter:blur(16px);box-shadow:0 8px 30px #07160d26}.canvas-viewport .selected-item-toolbar{border-color:#c0d3a730}.project-name{border-color:#8e9a753d;border-radius:6px;transition:border-color .3s,background .3s}.project-name:focus{background:#ffffff08;border-color:#d8b298}.file-input:focus-visible+.text-button,.upload-card:focus-within{outline:2px solid #e7b099;outline-offset:4px}.studio-feedback{border-bottom:1px solid #abc29412}.left-sidebar .category-pills button{border-radius:999px}.photo-info{line-height:1.8}.designer-toolbar .toolbar-actions .tool-btn{min-height:40px}.designer-toolbar .toolbar-actions .btn-save{min-height:40px}.brand-eyebrow{letter-spacing:.18em}
 @media(max-width:900px){.designer-layout{height:auto;min-height:100vh}}
 @media(hover:none){.catalog-card:hover,.upload-card:hover{transform:none}}
+
+/* Measured editing stays beside the canvas; mobile panels open on demand. */
+.editor-settings{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 20px;background:#24372a;border-bottom:1px solid #8d9f7e30;flex-shrink:0}
+.editor-settings label{display:flex;align-items:center;gap:8px;font-size:13px;color:#d3ddc8}
+.editor-settings select{background:#192b20;color:#eef5e7;border:1px solid #667d57;padding:7px 10px;border-radius:7px;min-height:36px}
+.editor-settings input[type=checkbox]{accent-color:#b6d58f;width:17px;height:17px}
+.settings-note{font-size:12px;color:#afbd9f;margin-left:auto;max-width:340px}
+.keyboard-help{padding:12px 20px;background:#314735;border-bottom:1px solid #647a56;display:flex;gap:18px;font-size:13px;line-height:1.7}
+.mobile-studio-panels{display:none}.right-sidebar{min-width:280px!important;width:300px!important;overflow-y:auto}
+.inspector-tabs{display:flex;gap:7px;margin-top:15px}.inspector-tabs button,.inspector-actions button,.inspector-open-objects{border:1px solid #617653;background:#2b402f;color:#e2edd9;padding:9px 12px;border-radius:8px;font-size:13px;min-height:38px}
+.inspector-tabs button.active{background:#52663e;border-color:#a8bf83;color:#fff}.precision-inspector{padding:0 18px 24px}
+.precision-inspector fieldset{border:0;padding:0;margin:14px 0}.precision-inspector label,.precision-room label{display:flex;flex-direction:column;gap:7px;font-size:13px;color:#c4d4b4;margin:12px 0}
+.precision-inspector input,.precision-room input[type=number]{min-width:0;width:100%;min-height:39px;background:#17291e;color:#f1f7ea;border:1px solid #637755;border-radius:7px;padding:8px 10px;font-size:14px}
+.precision-inspector input[type=color]{padding:4px;height:39px}.inspector-field-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+.inspector-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px}.inspector-actions .delete-object{color:#ffc0b4;border-color:#a16e62}
+.inspector-hint,.precision-room p{font-size:12px;line-height:1.7;color:#adbe9e;margin:12px 0}.precision-room h3{font-size:16px;margin:0 0 10px}.precision-room input[type=range]{width:100%;accent-color:#b2cc90}
+.distance-summary{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:24px;border-top:1px solid #70865f55;padding-top:18px}.distance-summary h4{grid-column:1/-1;font-size:13px;margin:0}.distance-summary span{font-size:12px;color:#adc29b}.distance-summary strong{display:block;font-size:14px;color:#e1f1d4;margin-top:4px;font-weight:500}
+.object-status{display:flex;gap:7px;flex-wrap:wrap}.object-status span{background:#3b4f32;padding:5px 8px;border-radius:5px;font-size:12px;color:#d7e6c8}
+.wall-distance-overlay{position:absolute;right:16px;top:18px;background:#1b3024e8;border:1px solid #a4c27b55;border-radius:10px;color:#d9edc9;padding:10px 13px;font-size:12px;pointer-events:none;z-index:3;display:grid;gap:5px;backdrop-filter:blur(10px)}
+.wall-distance-overlay strong{font-size:12px;color:#accd89}.sr-only{position:absolute;width:1px;height:1px;clip-path:inset(50%);overflow:hidden;white-space:nowrap}.precision-inspector fieldset:disabled{opacity:.55}
+.designer-layout button:disabled{opacity:.45;cursor:not-allowed}.designer-toolbar{height:auto;min-height:60px;flex-shrink:0;padding-top:10px;padding-bottom:10px}.canvas-viewport{min-height:300px}.right-sidebar .placed-row:focus-visible{outline:2px solid #b9d990;outline-offset:2px}
+@media(max-width:1100px){.settings-note{display:none}.right-sidebar{width:280px!important;min-width:280px!important}.left-sidebar{width:265px!important}.wall-distance-overlay{top:85px}}
+@media(max-width:900px){
+ .mobile-studio-panels{display:flex;gap:8px;padding:10px;background:#1c3022;flex-shrink:0;position:sticky;top:0;z-index:8}
+ .mobile-studio-panels button{flex:1;background:#304735;border:1px solid #617653;color:#e3efd7;border-radius:7px;padding:10px 6px;font-size:12px}
+ .mobile-studio-panels button[aria-expanded=true]{background:#52663e;border-color:#b0c88d}
+ .studio-body .left-sidebar,.studio-body .right-sidebar{display:none;width:100%!important;min-width:0!important;max-height:65vh;overflow:auto}
+ .studio-body .left-sidebar.mobile-open,.studio-body .right-sidebar.mobile-open{display:block}
+ .studio-body .right-sidebar{order:1}.studio-body .canvas-viewport{order:2;height:65vh;min-height:380px}
+ .editor-settings{padding:10px;gap:10px}.editor-settings label{font-size:12px}.editor-settings select{font-size:12px;padding:6px}.keyboard-help{flex-direction:column;gap:4px}
+ .precision-inspector{max-width:600px;margin:auto}.wall-distance-overlay{top:80px;font-size:11px}.inspector-header{padding-top:16px!important}
+}

@@ -27,6 +27,16 @@ class ApiSecurityTest {
     @Test void publicCanBrowseListings() throws Exception {
         mvc.perform(get("/api/properties")).andExpect(status().isOk());
     }
+    @Test void invalidTokenCannotReadPrivateDataButDoesNotBreakPublicBrowsing() throws Exception {
+        when(tokens.validateJwtToken("stale")).thenReturn(false);
+        mvc.perform(get("/api/properties").header("Authorization", "Bearer stale")).andExpect(status().isOk());
+        mvc.perform(get("/api/designs").header("Authorization", "Bearer stale"))
+            .andExpect(status().isUnauthorized()).andExpect(content().json("{\"message\":\"Sign in to continue\"}"));
+    }
+    @Test void applicationNotFoundIsNotRewrittenAsAnAuthenticationFailure() throws Exception {
+        when(properties.read(eq("missing"),isNull())).thenThrow(new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND));
+        mvc.perform(get("/api/properties/missing")).andExpect(status().isNotFound());
+    }
     @Test void anonymousCannotWriteOrReadPrivateData() throws Exception {
         for (String path : List.of("/api/properties", "/api/designs", "/api/conversations"))
             mvc.perform(post(path).contentType("application/json").content("{}")).andExpect(status().isUnauthorized());

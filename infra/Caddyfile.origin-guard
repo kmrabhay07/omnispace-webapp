@@ -1,0 +1,11 @@
+# Activate only AFTER the Vercel gateway is deployed and its routes verified.
+# Supply both variables to the Caddy container, not merely to Docker Compose.
+{$API_DOMAIN} {
+    @trustedProxy expression `size({env.OMNISPACE_PROXY_SECRET}) >= 32 && {http.request.header.X-Omnispace-Proxy} == {env.OMNISPACE_PROXY_SECRET}`
+    handle @trustedProxy {
+        reverse_proxy backend:8080
+    }
+    handle {
+        respond 404
+    }
+}

@@ -31,6 +31,7 @@
           </button>
           <button class="tool-btn" (click)="redo()" [disabled]="!history.canRedo" title="Redo last change">Redo</button>
           <a routerLink="/designs" class="tool-btn">My designs</a>
+          <button class="tool-btn" (click)="showShortcuts = !showShortcuts" [attr.aria-expanded]="showShortcuts">Shortcuts</button>
           <button class="tool-btn btn-danger" (click)="clearAllFurniture()" title="Clear Room">
             <i class="fa-solid fa-trash"></i> Clear
           </button>
@@ -44,9 +45,18 @@
       </header>
 
       <div class="studio-feedback" aria-live="polite"><span>{{ saveMessage }}</span><span role="alert">{{ photoError }}</span><span *ngIf="!ready">Loading project…</span></div>
+      <div class="editor-settings" [class.editor-loading]="!ready">
+        <label>Units <select aria-label="Measurement units" [ngModel]="unitSystem" (ngModelChange)="setUnit($event)"><option value="ft">Feet</option><option value="m">Meters</option></select></label>
+        <label>Snap <select aria-label="Snapping mode" [ngModel]="snapMode" (ngModelChange)="setSnap($event)"><option value="off">Off — precise</option><option value="grid">Grid</option><option value="wall">Walls</option><option value="objects">Object alignment</option></select></label>
+        <label *ngIf="snapMode === 'grid'">Grid <select aria-label="Grid increment" [ngModel]="snapStep" (ngModelChange)="setSnapStep($event)"><option [ngValue]="0.0833333333">1 inch</option><option [ngValue]="0.25">3 inches</option><option [ngValue]="0.5">6 inches</option><option [ngValue]="1">1 foot</option></select></label>
+        <label class="guide-toggle"><input type="checkbox" [(ngModel)]="showGuides" (change)="draw2DCanvas()"> Wall distances</label>
+        <span class="settings-note">Measurements are from the object's center. Hidden pieces are excluded from exports.</span>
+      </div>
+      <div class="keyboard-help" *ngIf="showShortcuts" role="note"><strong>Editor shortcuts</strong><span>Arrow keys: move {{ lengthLabel(snapMode === 'grid' ? snapStep : 0.25) }} · R: rotate 45° · Ctrl/Cmd+D: duplicate · Delete: remove · Escape: deselect · Ctrl/Cmd+Z: undo · Ctrl/Cmd+Shift+Z: redo. Locked objects cannot be moved, edited or deleted.</span></div>
+      <nav class="mobile-studio-panels" aria-label="Studio panels"><button (click)="showLibrary = !showLibrary; showInspector = false" [attr.aria-expanded]="showLibrary">Furniture & room</button><button (click)="showLibrary = false; showInspector = false">Viewport</button><button (click)="showInspector = !showInspector; showLibrary = false" [attr.aria-expanded]="showInspector">Inspector & objects</button></nav>
       <div class="studio-body" [class.editor-loading]="!ready">
         <!-- LEFT SIDEBAR: 3D FURNITURE & MATERIAL PALETTE -->
-        <aside class="left-sidebar">
+        <aside class="left-sidebar" [class.mobile-open]="showLibrary">
           <div class="studio-intro"><span>YOUR CREATIVE SPACE</span><h2>Make room for ideas<span class="intro-dot">.</span></h2><p>Build a space that feels like you.</p></div>
           <div class="sidebar-tabs"><button [class.active]="activeTab === 'PHOTOS'" (click)="activeTab = 'PHOTOS'"><i class="fa-solid fa-image"></i> Photos</button>
             <button [class.active]="activeTab === 'FURNITURE'" (click)="activeTab = 'FURNITURE'">
@@ -140,19 +150,15 @@
 
           <!-- ROOM SPECS TAB -->
           <div class="tab-content" *ngIf="activeTab === 'ROOM'">
-            <div class="room-control-group">
-              <label>Room Width (Feet): {{ roomWidthFt }}'</label>
-              <input type="range" min="10" max="36" step="2" [(ngModel)]="roomWidthFt" (input)="updateRoomDimensions()">
+            <div class="precision-room">
+              <h3>Exact room measurements</h3><p>Enter decimal feet (1 inch = 0.0833 ft) or switch to meters above.</p>
+              <label>Width ({{ unitSystem }})<input type="number" [min]="displayLength(4)" [max]="displayLength(100)" step="0.001" [value]="displayLength(roomWidthFt)" (change)="updateRoomMeasurement('width', $event)"></label>
+              <input aria-label="Room width slider" type="range" [min]="displayLength(4)" [max]="displayLength(100)" [step]="unitSystem === 'ft' ? 0.25 : 0.05" [value]="displayLength(roomWidthFt)" (change)="updateRoomMeasurement('width', $event)">
+              <label>Length ({{ unitSystem }})<input type="number" [min]="displayLength(4)" [max]="displayLength(100)" step="0.001" [value]="displayLength(roomLengthFt)" (change)="updateRoomMeasurement('length', $event)"></label>
+              <input aria-label="Room length slider" type="range" [min]="displayLength(4)" [max]="displayLength(100)" [step]="unitSystem === 'ft' ? 0.25 : 0.05" [value]="displayLength(roomLengthFt)" (change)="updateRoomMeasurement('length', $event)">
+              <label>Ceiling height ({{ unitSystem }})<input type="number" [min]="displayLength(6)" [max]="displayLength(30)" step="0.001" [value]="displayLength(roomHeightFt)" (change)="updateRoomMeasurement('ceiling', $event)"></label>
+              <p>Changes keep existing furniture positions where possible. An object must fit before shrinking the room.</p>
             </div>
-            <div class="room-control-group">
-              <label>Room Length (Feet): {{ roomLengthFt }}'</label>
-              <input type="range" min="10" max="36" step="2" [(ngModel)]="roomLengthFt" (input)="updateRoomDimensions()">
-            </div>
-            <div class="room-control-group">
-              <label>Ceiling Height: {{ roomHeightFt }}'</label>
-              <input type="range" min="8" max="16" step="1" [(ngModel)]="roomHeightFt" (input)="updateRoomDimensions()">
-            </div>
-
             <div class="room-preset-boxes">
               <h4>Quick Layout Presets:</h4>
               <button class="btn-preset" (click)="applyRoomPreset('LIVING')">Modern Living Room</button>
@@ -179,6 +185,7 @@
             (pointercancel)="on2DMouseUp($event)"
           ></canvas>
 
+          <div class="wall-distance-overlay" *ngIf="showGuides && selectedFurniture && !selectedFurniture.hidden"><ng-container *ngIf="selectedDistances as d"><strong>Wall distances</strong><span>W {{ lengthLabel(d.west) }} ? E {{ lengthLabel(d.east) }}</span><span>N {{ lengthLabel(d.north) }} ? S {{ lengthLabel(d.south) }}</span></ng-container></div>
           <!-- 3D INTERACTION HINT OVERLAY -->
           <div class="viewport-hints" *ngIf="viewMode === '3D'">
             <div class="hint-pill"><i class="fa-solid fa-arrows-up-down-left-right"></i> <strong>Touch or drag an object</strong> to Move</div>
@@ -195,41 +202,57 @@
 
             <!-- Precision Direction Pad -->
             <div class="move-dpad">
-              <button (click)="moveSelected(-0.25, 0)" title="Move Left (←)"><i class="fa-solid fa-arrow-left"></i></button>
-              <button (click)="moveSelected(0, -0.25)" title="Move Up (↑)"><i class="fa-solid fa-arrow-up"></i></button>
-              <button (click)="moveSelected(0, 0.25)" title="Move Down (↓)"><i class="fa-solid fa-arrow-down"></i></button>
-              <button (click)="moveSelected(0.25, 0)" title="Move Right (→)"><i class="fa-solid fa-arrow-right"></i></button>
+              <button [disabled]="!!selectedFurniture.locked" (click)="moveSelected(-0.25, 0)" title="Move Left (←)"><i class="fa-solid fa-arrow-left"></i></button>
+              <button [disabled]="!!selectedFurniture.locked" (click)="moveSelected(0, -0.25)" title="Move Up (↑)"><i class="fa-solid fa-arrow-up"></i></button>
+              <button [disabled]="!!selectedFurniture.locked" (click)="moveSelected(0, 0.25)" title="Move Down (↓)"><i class="fa-solid fa-arrow-down"></i></button>
+              <button [disabled]="!!selectedFurniture.locked" (click)="moveSelected(0.25, 0)" title="Move Right (→)"><i class="fa-solid fa-arrow-right"></i></button>
             </div>
 
             <div class="actions">
-              <button *ngIf="selectedFurniture.imageData" (click)="resizePhoto(0.8)" title="Make photo smaller">− Size</button>
-              <button *ngIf="selectedFurniture.imageData" (click)="resizePhoto(1.25)" title="Make photo larger">+ Size</button>
-              <button (click)="rotateSelected(45)" title="Rotate 45° (R)"><i class="fa-solid fa-rotate-right"></i> Rotate</button>
-              <button *ngIf="!selectedFurniture.imageData" (click)="changeColorSelected()" title="Change Fabric Color"><i class="fa-solid fa-paint-roller"></i> Color</button>
-              <button class="btn-del" (click)="deleteSelected()" title="Delete (Del)"><i class="fa-solid fa-trash"></i></button>
+              <button [disabled]="!!selectedFurniture.locked" *ngIf="selectedFurniture.imageData" (click)="resizePhoto(0.8)" title="Make photo smaller">− Size</button>
+              <button [disabled]="!!selectedFurniture.locked" *ngIf="selectedFurniture.imageData" (click)="resizePhoto(1.25)" title="Make photo larger">+ Size</button>
+              <button [disabled]="!!selectedFurniture.locked" (click)="rotateSelected(45)" title="Rotate 45° (R)"><i class="fa-solid fa-rotate-right"></i> Rotate</button>
+              <button [disabled]="!!selectedFurniture.locked" *ngIf="!selectedFurniture.imageData" (click)="changeColorSelected()" title="Change Fabric Color"><i class="fa-solid fa-paint-roller"></i> Color</button>
+              <button class="btn-del" [disabled]="!!selectedFurniture.locked" (click)="deleteSelected()" title="Delete (Del)"><i class="fa-solid fa-trash"></i></button>
             </div>
           </div>
         </main>
 
         <!-- RIGHT SIDEBAR: PLACED OBJECTS & INSPECTOR -->
-        <aside class="right-sidebar">
+        <aside class="right-sidebar" [class.mobile-open]="showInspector">
           <div class="inspector-header">
-            <div class="inspector-title"><div><span>YOUR SPACE</span><h3>Placed pieces</h3></div><b>{{ placedItems.length }}</b></div><p>Select an item to edit it.</p>
+            <div class="inspector-title"><div><span>YOUR SPACE</span><h3>Placed pieces</h3></div><b>{{ placedItems.length }}</b></div><p>Select an item to edit it.</p><div class="inspector-tabs"><button (click)="inspectorTab = 'selection'" [class.active]="inspectorTab === 'selection'">Selection</button><button (click)="inspectorTab = 'objects'" [class.active]="inspectorTab === 'objects'">Objects ({{ placedItems.length }})</button></div>
           </div>
 
-          <div class="placed-list" *ngIf="placedItems.length > 0; else emptyPlaced">
+          <section class="precision-inspector" *ngIf="inspectorTab === 'selection'">
+  <ng-container *ngIf="selectedFurniture as item; else noSelection">
+    <div class="object-status"><span>{{ item.imageData ? 'Photo panel' : '3D furniture' }}</span><span *ngIf="item.locked">Locked</span><span *ngIf="item.hidden">Hidden</span></div>
+    <fieldset [disabled]="!!item.locked"><legend class="sr-only">Object measurements</legend>
+      <label>Name<input type="text" maxlength="160" [value]="item.name" (change)="updateSelected('name', $event)"></label>
+      <div class="inspector-field-grid"><label>From west ({{ unitSystem }})<input type="number" step="0.001" [value]="displayLength(selectedX)" (change)="updateSelected('x', $event)"></label><label>From north ({{ unitSystem }})<input type="number" step="0.001" [value]="displayLength(selectedY)" (change)="updateSelected('y', $event)"></label>
+      <label>Width ({{ unitSystem }})<input type="number" [min]="displayLength(0.1)" [max]="displayLength(100)" step="0.001" [value]="displayLength(item.width)" (change)="updateSelected('width', $event)"></label><label>{{ item.imageData ? 'Panel height' : 'Floor depth' }} ({{ unitSystem }})<input type="number" [min]="displayLength(0.1)" [max]="displayLength(100)" step="0.001" [value]="displayLength(item.height)" (change)="updateSelected('height', $event)"></label>
+      <label>Rotation (degrees)<input type="number" step="1" [value]="item.rotation" (change)="updateSelected('rotation', $event)"></label><label *ngIf="!item.imageData">Color<input type="color" [value]="item.color" (change)="updateSelected('color', $event)"></label></div>
+    </fieldset>
+    <p class="inspector-hint">Positions use the object center and the selected snap mode. Floor depth is not furniture height.</p>
+    <div class="inspector-actions"><button (click)="duplicateSelected()">Duplicate</button><button (click)="toggleItemLock(item)">{{ item.locked ? 'Unlock' : 'Lock' }}</button><button (click)="toggleItemHidden(item)">{{ item.hidden ? 'Show' : 'Hide' }}</button><button class="delete-object" [disabled]="!!item.locked" (click)="deleteSelected()">Delete</button></div>
+    <p class="inspector-hint" *ngIf="item.hidden">This piece is saved but excluded from all views and PNG exports.</p>
+    <div class="distance-summary" *ngIf="selectedDistances as d"><h4>Clearance to room edges</h4><span>West <strong>{{ lengthLabel(d.west) }}</strong></span><span>East <strong>{{ lengthLabel(d.east) }}</strong></span><span>North <strong>{{ lengthLabel(d.north) }}</strong></span><span>South <strong>{{ lengthLabel(d.south) }}</strong></span></div>
+  </ng-container><ng-template #noSelection><p class="inspector-hint">Select furniture in the viewport or open Objects to edit a hidden piece.</p><button class="inspector-open-objects" (click)="inspectorTab = 'objects'">Browse placed objects</button></ng-template>
+</section>
+<div class="objects-pane" *ngIf="inspectorTab === 'objects'">
+<div class="placed-list" *ngIf="placedItems.length > 0; else emptyPlaced">
             <div
               *ngFor="let item of placedItems"
               class="placed-row"
               [class.active]="selectedFurniture?.instanceId === item.instanceId"
-              (click)="selectItem(item)"
+              (click)="selectItem(item)" tabindex="0" role="button" (keydown.enter)="selectItem(item)"
             >
               <div class="icon-circle"><img *ngIf="item.imageData" [src]="item.imageData" alt=""><i *ngIf="!item.imageData" [class]="getCategoryIcon(item.category)"></i></div>
               <div class="name-box">
                 <div class="item-name">{{ item.name }}</div>
-                <div class="item-sub">{{ item.imageData ? 'Photo' : '3D object' }} · {{ item.rotation }}°</div>
+                <div class="item-sub">{{ item.locked ? 'Locked / ' : '' }}{{ item.hidden ? 'Hidden / ' : '' }}{{ item.imageData ? 'Photo' : '3D object' }} · {{ item.rotation }}°</div>
               </div>
-              <button class="remove-btn" [attr.aria-label]="'Remove ' + item.name" (click)="$event.stopPropagation(); deleteItem(item.instanceId)">
+              <button class="remove-btn" [disabled]="!!item.locked" [attr.aria-label]="'Remove ' + item.name" (click)="$event.stopPropagation(); deleteItem(item.instanceId)">
                 <i class="fa-solid fa-trash-can"></i>
               </button>
             </div>
@@ -241,6 +264,7 @@
               <p>Your room is a blank canvas.<br>Add a photo or choose a piece from the collection.</p>
             </div>
           </ng-template>
+</div>
         </aside>
       </div>
     </div>
