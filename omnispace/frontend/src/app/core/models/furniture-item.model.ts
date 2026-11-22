@@ -12,6 +12,8 @@ export interface FurnitureItem {
 }
 
 export interface PlacedFurniture {
+  locked?: boolean;
+  hidden?: boolean;
   instanceId: string;
   furnitureId: string;
   name: string;

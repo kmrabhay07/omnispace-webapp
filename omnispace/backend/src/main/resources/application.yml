@@ -1,5 +1,10 @@
 server:
   port: ${PORT:8080}
+  error:
+    include-stacktrace: never
+    include-exception: false
+    include-message: never
+    include-binding-errors: never
 
 spring:
   application:
@@ -8,6 +13,9 @@ spring:
     uri: ${SPRING_DATA_MONGODB_URI:${MONGODB_URI:${MONGO_DB_URI:${MONGO_URI:mongodb://localhost:27017/omnispace}}}}
 
 app:
+  proxy:
+    required: ${ORIGIN_PROXY_REQUIRED:false}
+    secret: ${OMNISPACE_PROXY_SECRET:}
   cors:
     allowed-origins: ${ALLOWED_ORIGINS:http://localhost:4200,https://omnispace-webapp-x3xh.vercel.app}
   jwt:

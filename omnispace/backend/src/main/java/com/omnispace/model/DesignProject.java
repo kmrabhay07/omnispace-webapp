@@ -9,6 +9,9 @@ import java.util.*;
 @Data
 @Document(collection = "design_projects")
 public class DesignProject {
+    @Pattern(regexp = "ft|m") private String unitSystem;
+    @Pattern(regexp = "off|grid|wall|objects") private String snapMode;
+    @DecimalMin("0.01") @DecimalMax("1") private Double snapStep;
     @Id private String id;
     @Version private Long version;
     @NotBlank @Size(max = 160) private String name;
@@ -27,6 +30,8 @@ public class DesignProject {
     private Instant updatedAt;
     @Data
     public static class PlacedFurniture {
+        private Boolean locked;
+        private Boolean hidden;
         @NotBlank @Size(max = 100) private String instanceId;
         @NotBlank @Size(max = 100) private String furnitureId;
         @NotBlank @Size(max = 160) private String name;

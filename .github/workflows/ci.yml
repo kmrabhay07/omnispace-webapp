@@ -48,6 +48,9 @@ jobs:
       - name: Run frontend regression tests
         working-directory: omnispace/frontend
         run: npm test -- --watch=false
+      - name: Test server-side API gateway
+        working-directory: omnispace/frontend
+        run: node --test tools/gateway.test.mjs
       - name: Build production frontend
         working-directory: omnispace/frontend
         run: npm run build -- --configuration production
@@ -117,7 +120,7 @@ jobs:
           "${compose[@]}" up -d --no-deps --no-build backend
 
           for attempt in {1..30}; do
-            if curl --fail --silent --max-time 3 http://127.0.0.1:8080/api/properties >/dev/null \
+            if git -C repo show "$revision:infra/check-backend.py" | python3 - \
               && sudo -n test -s /logs/omnispace/omnispace.log; then
               echo "Backend deployed at $revision with persistent logs in /logs/omnispace"
               exit 0

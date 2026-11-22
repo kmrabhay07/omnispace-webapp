@@ -12,7 +12,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { EditorHistory } from '../../core/utils/history';
-import { clampPlacement } from '../../core/utils/editor-geometry';
+import { clampPlacement, containsPoint, fitsRoom, footprint, placeItem, SnapMode, toDisplayLength, toFeet, wallDistances } from '../../core/utils/editor-geometry';
 import { disposeObject } from '../../core/utils/three-resources';
 
 @Component({
@@ -32,6 +32,13 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
   route = inject(ActivatedRoute);
 
   ready = false;
+  inspectorTab: 'selection' | 'objects' = 'selection';
+  showLibrary = false;
+  showInspector = false;
+  showShortcuts = false;
+  showGuides = true;
+  private batchEditing = false;
+  private exportingSnapshot = false;
   saving = false;
   private destroyed = false;
   private dirty = false;
@@ -40,7 +47,7 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
   private timers = new Set<ReturnType<typeof setTimeout>>();
   private resizeObserver?: ResizeObserver;
   private readonly pointerDown = (e: PointerEvent) => { this.on3DPointerDown(e); this.cdr.markForCheck(); };
-  private readonly pointerMove = (e: PointerEvent) => this.on3DPointerMove(e);
+  private readonly pointerMove = (e: PointerEvent) => { this.on3DPointerMove(e); if (this.isDragging3D) this.cdr.markForCheck(); };
   private readonly pointerUp = (e: PointerEvent) => { this.on3DPointerUp(e); this.cdr.markForCheck(); };
   private schedule(fn: () => void, ms: number) {
     const timer = setTimeout(() => { this.timers.delete(timer); if (!this.destroyed) fn(); }, ms);
@@ -133,6 +140,98 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
     return this.catalog.filter(item => item.category === this.selectedCategory);
   }
 
+  get unitSystem(): 'ft' | 'm' { return this.currentProject.unitSystem || 'ft'; }
+  get snapMode(): SnapMode { return this.currentProject.snapMode || 'grid'; }
+  get snapStep(): number { return this.currentProject.snapStep || 0.25; }
+  displayLength(feet: number) { return Math.round(toDisplayLength(feet, this.unitSystem) * 1e6) / 1e6; }
+  lengthLabel(feet: number) { return `${Math.round(toDisplayLength(Math.max(0, feet), this.unitSystem) * 1000) / 1000} ${this.unitSystem}`; }
+  get selectedDistances() { return this.selectedFurniture ? wallDistances(this.selectedFurniture, this.roomWidthFt, this.roomLengthFt) : null; }
+  get selectedX() { return (this.selectedFurniture?.x || 0) / 100 * this.roomWidthFt; }
+  get selectedY() { return (this.selectedFurniture?.y || 0) / 100 * this.roomLengthFt; }
+  setUnit(value: 'ft' | 'm') { this.currentProject.unitSystem = value; this.saveHistoryState(); }
+  setSnap(value: SnapMode) { this.currentProject.snapMode = value; this.saveHistoryState(); }
+  setSnapStep(value: string) { const step = Number(value); if ([0.0833333333, 0.25, 0.5, 1].includes(step)) { this.currentProject.snapStep = step; this.saveHistoryState(); } }
+  private place(item: PlacedFurniture) { placeItem(item, this.roomWidthFt, this.roomLengthFt, this.snapMode, this.snapStep, this.placedItems); }
+
+  private refreshItem(item: PlacedFurniture) {
+    if (this.scene) {
+      const old = this.furnitureMeshMap.get(item.instanceId);
+      if (old) disposeObject(old);
+      const catalogItem = this.catalog.find(c => c.id === item.furnitureId) || this.catalog[0];
+      if (catalogItem || item.imageData) {
+        const mesh = this.create3DMesh(catalogItem, item);
+        mesh.visible = !item.hidden;
+        this.furnitureMeshMap.set(item.instanceId, mesh); this.scene.add(mesh);
+      }
+    }
+    this.updateSelectionRing(); this.draw2DCanvas();
+  }
+
+  updateSelected(field: 'name' | 'x' | 'y' | 'width' | 'height' | 'rotation' | 'color', event: Event) {
+    const item = this.selectedFurniture, input = event.target as HTMLInputElement;
+    if (!item || item.locked) return;
+    const candidate = { ...item };
+    if (field === 'name') candidate.name = input.value.trim().slice(0, 160) || item.name;
+    else if (field === 'color') { if (!/^#[\da-f]{6}$/i.test(input.value)) return; candidate.color = input.value; }
+    else {
+      const value = Number(input.value);
+      if (!input.value.trim() || !Number.isFinite(value)) { this.photoError = 'Enter a valid measurement.'; this.resetInspectorInput(input, item, field); return; }
+      if (field === 'rotation') candidate.rotation = ((value % 360) + 360) % 360;
+      else {
+        const feet = toFeet(value, this.unitSystem);
+        if ((field === 'width' || field === 'height') && (feet < 0.1 || feet > 100)) { this.photoError = 'Object dimensions must be between 0.1 and 100 ft (or metric equivalent).'; this.resetInspectorInput(input, item, field); return; }
+        if (field === 'x') candidate.x = feet / this.roomWidthFt * 100;
+        else if (field === 'y') candidate.y = feet / this.roomLengthFt * 100;
+        else candidate[field] = feet;
+      }
+      if (!fitsRoom(candidate, this.roomWidthFt, this.roomLengthFt)) { this.photoError = 'This rotated footprint does not fit inside the room. Reduce the size or change the angle.'; this.resetInspectorInput(input, item, field); return; }
+      this.place(candidate);
+    }
+    Object.assign(item, candidate); this.photoError = ''; this.refreshItem(item); this.saveHistoryState();
+    this.resetInspectorInput(input, item, field);
+  }
+  private resetInspectorInput(input: HTMLInputElement, item: PlacedFurniture, field: string) {
+    const values: Record<string, number | string> = { name: item.name, color: item.color, rotation: item.rotation,
+      x: this.displayLength(item.x / 100 * this.roomWidthFt), y: this.displayLength(item.y / 100 * this.roomLengthFt),
+      width: this.displayLength(item.width), height: this.displayLength(item.height) };
+    input.value = String(values[field]);
+  }
+
+  updateRoomMeasurement(field: 'width' | 'length' | 'ceiling', event: Event) {
+    const input = event.target as HTMLInputElement, oldWidth = this.roomWidthFt, oldLength = this.roomLengthFt;
+    const previous = field === 'width' ? oldWidth : field === 'length' ? oldLength : this.roomHeightFt;
+    const value = toFeet(Number(input.value), this.unitSystem), min = field === 'ceiling' ? 6 : 4, max = field === 'ceiling' ? 30 : 100;
+    if (!input.value.trim() || !Number.isFinite(value) || value < min - 1e-6 || value > max + 1e-6) {
+      this.photoError = `Enter a measurement between ${this.lengthLabel(min)} and ${this.lengthLabel(max)}.`; input.value = String(this.displayLength(previous)); return;
+    }
+    const bounded = Math.max(min, Math.min(max, value));
+    const width = field === 'width' ? bounded : oldWidth, length = field === 'length' ? bounded : oldLength;
+    if (field !== 'ceiling' && this.placedItems.some(item => !fitsRoom(item, width, length))) {
+      this.photoError = 'An object is too large for these room dimensions. Resize it first.'; input.value = String(this.displayLength(previous)); return;
+    }
+    if (field === 'width') this.roomWidthFt = bounded;
+    else if (field === 'length') this.roomLengthFt = bounded;
+    else this.roomHeightFt = bounded;
+    this.placedItems.forEach(item => { item.x = item.x / 100 * oldWidth / width * 100; item.y = item.y / 100 * oldLength / length * 100; clampPlacement(item, width, length, 0); });
+    this.photoError = ''; if (this.scene) { this.build3DRoom(); this.rebuildAllMeshes(); }
+    this.saveHistoryState();
+  }
+
+  duplicateSelected() {
+    const original = this.selectedFurniture;
+    if (!original) return;
+    if (this.placedItems.length >= 100 || (original.imageData && this.placedItems.filter(p => p.imageData).length >= 5)) { this.photoError = 'The design limit is 100 objects, including at most five furniture photos.'; return; }
+    const copy = { ...original, instanceId: 'inst-' + crypto.randomUUID(), name: (original.name + ' copy').slice(0, 160), locked: false, hidden: false,
+      x: original.x + 0.5 / this.roomWidthFt * 100, y: original.y + 0.5 / this.roomLengthFt * 100 };
+    this.place(copy); this.placedItems.push(copy); this.selectedFurniture = copy; this.inspectorTab = 'selection';
+    this.refreshItem(copy); this.saveHistoryState();
+  }
+  toggleItemLock(item: PlacedFurniture) { item.locked = !item.locked; this.saveHistoryState(); }
+  toggleItemHidden(item: PlacedFurniture) {
+    item.hidden = !item.hidden; const mesh = this.furnitureMeshMap.get(item.instanceId); if (mesh) mesh.visible = !item.hidden;
+    this.updateSelectionRing(); this.saveHistoryState();
+  }
+
   ngOnInit() {
     this.furnitureService.getCatalog().subscribe(items => { this.catalog = items; });
     const designId = this.route.snapshot.queryParamMap.get('designId');
@@ -223,15 +322,10 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
   resizePhoto(factor: number) {
     const item = this.selectedFurniture;
-    if (!item?.imageData || !this.scene) return;
-    const width = Math.max(1, Math.min(10, item.width * factor));
-    const ratio = width / item.width;
-    item.width = width; item.height *= ratio;
-    const oldMesh = this.furnitureMeshMap.get(item.instanceId);
-    if (oldMesh) disposeObject(oldMesh);
-    const mesh = this.create3DMesh(this.catalog[0], item);
-    this.furnitureMeshMap.set(item.instanceId, mesh); this.scene.add(mesh);
-    this.updateSelectionRing(); this.saveHistoryState();
+    if (!item?.imageData || item.locked) return;
+    const candidate = { ...item, width: item.width * factor, height: item.height * factor };
+    if (candidate.width < .1 || candidate.height < .1 || candidate.width > 100 || candidate.height > 100 || !fitsRoom(candidate, this.roomWidthFt, this.roomLengthFt)) { this.photoError = 'This photo size does not fit the room.'; return; }
+    Object.assign(item, candidate); this.place(item); this.refreshItem(item); this.saveHistoryState();
   }
   removeRoomPhoto() { this.roomPhoto = ''; if (this.scene) this.build3DRoom(); this.saveHistoryState(); }
   async uploadFurniture(event: Event) {
@@ -261,9 +355,12 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
   // KEYBOARD SHORTCUTS FOR MOVING & ROTATING
   @HostListener('window:keydown', ['$event'])
   onKeyDown(e: KeyboardEvent) {
-    if (/^(INPUT|TEXTAREA|SELECT)$/.test((e.target as HTMLElement)?.tagName)) return;
+    if ((e.target as HTMLElement)?.closest('input,textarea,select,[contenteditable=true]')) return;
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); e.shiftKey ? this.redo() : this.undo(); return; }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'y') { e.preventDefault(); this.redo(); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd') { e.preventDefault(); this.duplicateSelected(); return; }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === 'Escape') { this.selectedFurniture = null; this.updateSelectionRing(); this.draw2DCanvas(); return; }
     if (!this.selectedFurniture) return;
 
     if (e.key === 'ArrowLeft') {
@@ -281,6 +378,7 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
     } else if (e.key === 'r' || e.key === 'R') {
       this.rotateSelected(45);
     } else if (e.key === 'Delete' || e.key === 'Backspace') {
+      e.preventDefault();
       this.deleteSelected();
     }
   }
@@ -305,7 +403,7 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
     this.renderer.setSize(width, height);
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     container.innerHTML = '';
     container.appendChild(this.renderer.domElement);
@@ -372,7 +470,7 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   updateSelectionRing() {
     if (!this.selectionRingMesh) return;
-    if (this.selectedFurniture) {
+    if (this.selectedFurniture && !this.selectedFurniture.hidden) {
       const mesh = this.furnitureMeshMap.get(this.selectedFurniture.instanceId);
       if (mesh) {
         this.selectionRingMesh.position.x = mesh.position.x;
@@ -450,6 +548,7 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
   // 3. 3D PROCEDURAL FURNITURE MESH BUILDER
   create3DMesh(item: FurnitureItem, placed: PlacedFurniture): any {
     const group = new THREE.Group();
+    group.visible = !placed.hidden;
     if (placed.imageData) {
       const texture = new THREE.TextureLoader().load(placed.imageData);
       texture.colorSpace = THREE.SRGBColorSpace;
@@ -644,7 +743,8 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
       viewMode: 'TOP_DOWN'
     };
 
-    clampPlacement(newPlaced, this.roomWidthFt, this.roomLengthFt);
+    if (!fitsRoom(newPlaced, this.roomWidthFt, this.roomLengthFt)) { this.photoError = 'This furniture is too large for the room. Choose a smaller piece or enlarge the room.'; return; }
+    this.place(newPlaced);
     this.placedItems.push(newPlaced);
     this.selectedFurniture = newPlaced;
 
@@ -675,7 +775,7 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
     this.pointerDownPos = { x: event.clientX, y: event.clientY };
 
     const { raycaster } = this.getRaycaster(event);
-    const meshes = Array.from(this.furnitureMeshMap.values());
+    const meshes = Array.from(this.furnitureMeshMap.values()).filter(mesh => mesh.visible);
     const intersects = raycaster.intersectObjects(meshes, true);
 
     if (intersects.length > 0) {
@@ -687,6 +787,8 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
       if (itemId) {
         const found = this.placedItems.find(p => p.instanceId === itemId);
         if (found) {
+          this.selectedFurniture = found; this.inspectorTab = 'selection'; this.updateSelectionRing();
+          if (found.locked) return;
             this.renderer.domElement.setPointerCapture(event.pointerId);
             this.selectedFurniture = found;
           this.updateSelectionRing();
@@ -708,7 +810,7 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   on3DPointerMove(event: PointerEvent) {
-    if (!this.isDragging3D || !this.selectedFurniture || !this.renderer) return;
+    if (!this.isDragging3D || !this.selectedFurniture || this.selectedFurniture.locked || !this.renderer) return;
 
     const { raycaster } = this.getRaycaster(event);
     const planeIntersect = new THREE.Vector3();
@@ -721,7 +823,7 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
 
         this.selectedFurniture.x = (newX + this.roomWidthFt / 2) / this.roomWidthFt * 100;
         this.selectedFurniture.y = (newZ + this.roomLengthFt / 2) / this.roomLengthFt * 100;
-        clampPlacement(this.selectedFurniture, this.roomWidthFt, this.roomLengthFt);
+        this.place(this.selectedFurniture);
         mesh.position.x = this.selectedFurniture.x / 100 * this.roomWidthFt - this.roomWidthFt / 2;
         mesh.position.z = this.selectedFurniture.y / 100 * this.roomLengthFt - this.roomLengthFt / 2;
 
@@ -741,16 +843,20 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // 6. PRECISION MOVEMENT CONTROLS (D-PAD & ARROWS)
   moveSelected(deltaXFt: number, deltaZFt: number) {
-    if (!this.selectedFurniture) return;
+    if (!this.selectedFurniture || this.selectedFurniture.locked) return;
+    if (this.snapMode === 'grid') {
+      deltaXFt = Math.sign(deltaXFt) * this.snapStep;
+      deltaZFt = Math.sign(deltaZFt) * this.snapStep;
+    }
 
     // Update percentage position
     const deltaXPct = (deltaXFt / this.roomWidthFt) * 100;
     const deltaZPct = (deltaZFt / this.roomLengthFt) * 100;
 
-    this.selectedFurniture.x = Math.max(5, Math.min(95, this.selectedFurniture.x + deltaXPct));
-    this.selectedFurniture.y = Math.max(5, Math.min(95, this.selectedFurniture.y + deltaZPct));
+    this.selectedFurniture.x += deltaXPct;
+    this.selectedFurniture.y += deltaZPct;
 
-    clampPlacement(this.selectedFurniture, this.roomWidthFt, this.roomLengthFt);
+    this.place(this.selectedFurniture);
     const mesh = this.furnitureMeshMap.get(this.selectedFurniture.instanceId);
     if (mesh) {
       const posX = (this.selectedFurniture.x / 100) * this.roomWidthFt - this.roomWidthFt / 2;
@@ -764,9 +870,11 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   rotateSelected(degrees: number) {
-    if (!this.selectedFurniture) return;
+    if (!this.selectedFurniture || this.selectedFurniture.locked) return;
+    const candidate = { ...this.selectedFurniture, rotation: (this.selectedFurniture.rotation + degrees + 360) % 360 };
+    if (!fitsRoom(candidate, this.roomWidthFt, this.roomLengthFt)) { this.photoError = 'This rotated footprint does not fit the room.'; return; }
     this.selectedFurniture.rotation = (this.selectedFurniture.rotation + degrees) % 360;
-    clampPlacement(this.selectedFurniture, this.roomWidthFt, this.roomLengthFt);
+    this.place(this.selectedFurniture);
 
     const mesh = this.furnitureMeshMap.get(this.selectedFurniture.instanceId);
     if (mesh) {
@@ -777,7 +885,7 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   changeColorSelected() {
-    if (!this.selectedFurniture) return;
+    if (!this.selectedFurniture || this.selectedFurniture.locked) return;
     const colors = ['#1E293B', '#FF5A5F', '#00A699', '#D97706', '#2563EB', '#475569', '#E2E8F0'];
     const next = colors[(colors.indexOf(this.selectedFurniture.color || colors[0]) + 1) % colors.length];
     this.selectedFurniture.color = next;
@@ -801,6 +909,7 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   deleteItem(id: string) {
+    if (this.placedItems.find(item => item.instanceId === id)?.locked) { this.photoError = 'Unlock this object before deleting it.'; return; }
     const mesh = this.furnitureMeshMap.get(id);
     if (mesh && this.scene) {
       disposeObject(mesh);
@@ -816,11 +925,13 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   selectItem(item: PlacedFurniture) {
-    this.selectedFurniture = item;
-    this.updateSelectionRing();
+    this.selectedFurniture = item; this.inspectorTab = 'selection';
+    this.updateSelectionRing(); this.draw2DCanvas();
   }
 
   clearAllFurniture() {
+    if (!this.placedItems.length) return;
+    if (!this.batchEditing && !confirm('Clear all furniture, including locked and hidden items? You can undo this action.')) return;
     this.placedItems.forEach(p => {
       const mesh = this.furnitureMeshMap.get(p.instanceId);
       if (mesh && this.scene) disposeObject(mesh);
@@ -876,22 +987,19 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   applyRoomPreset(type: string) {
-    this.clearAllFurniture();
-    if (type === 'LIVING') {
-      this.setFloorMaterial('WOOD');
-      this.setWallColor('#E2E8F0');
-      const sofa = this.catalog.find(c => c.name.includes('Sofa')) || this.catalog[0];
-      const table = this.catalog.find(c => c.name.includes('Table')) || this.catalog[1];
-      const tv = this.catalog.find(c => c.name.includes('TV')) || this.catalog[2];
-      if (sofa) this.add3DFurniture(sofa);
-      if (table) this.add3DFurniture(table);
-      if (tv) this.add3DFurniture(tv);
-    } else if (type === 'BEDROOM') {
-      this.setFloorMaterial('CARPET');
-      this.setWallColor('#F8FAFC');
-      const bed = this.catalog.find(c => c.name.includes('Bed')) || this.catalog[0];
-      if (bed) this.add3DFurniture(bed);
-    }
+    const keywords: Record<string, string[]> = { LIVING: ['Sofa', 'Table', 'TV'], BEDROOM: ['Bed'], OFFICE: ['Desk', 'Chair'] };
+    if (!keywords[type]) return;
+    const items = keywords[type].map(word => this.catalog.find(item => item.name.includes(word))).filter((item): item is FurnitureItem => !!item);
+    if (!items.length) { this.photoError = 'No furniture is available for this preset.'; return; }
+    if (items.some(item => item.defaultWidth > this.roomWidthFt || item.defaultHeight > this.roomLengthFt)) { this.photoError = 'This preset needs a larger room. Your current design has been kept.'; return; }
+    if (this.placedItems.length && !confirm('Replace all furniture with this preset? This includes locked and hidden items. One Undo restores your design.')) return;
+    this.batchEditing = true;
+    try {
+      this.clearAllFurniture(); this.setFloorMaterial(type === 'BEDROOM' ? 'CARPET' : 'WOOD');
+      this.setWallColor(type === 'BEDROOM' ? '#F8FAFC' : '#E2E8F0');
+      items.forEach(item => this.add3DFurniture(item));
+      this.photoError = '';
+    } finally { this.batchEditing = false; this.saveHistoryState(); }
   }
 
   // 8. VIEW SWITCHER & 2D CANVAS DRAWING
@@ -981,13 +1089,13 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
     ctx.fillStyle = '#94a3b8';
     ctx.font = 'bold 12px Inter, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(`${this.roomWidthFt} FT (North Wall)`, startX + roomPxW / 2, startY - 14);
-    ctx.fillText(`${this.roomLengthFt} FT (West Wall)`, startX - 20, startY + roomPxH / 2);
+    ctx.fillText(`${this.lengthLabel(this.roomWidthFt)} (North wall)`, startX + roomPxW / 2, startY - 14);
+    ctx.fillText(`${this.lengthLabel(this.roomLengthFt)} (West wall)`, startX - 20, startY + roomPxH / 2);
 
     // Render Placed Furniture in 2D
-    this.placedItems.forEach(item => {
+    this.placedItems.filter(item => !item.hidden).forEach(item => {
       const itemW = (item.width || 4) * scale;
-      const itemH = (item.height || 2.5) * scale;
+      const itemH = (item.imageData ? 0.2 : item.height || 2.5) * scale;
       const itemX = startX + (item.x / 100) * roomPxW - itemW / 2;
       const itemY = startY + (item.y / 100) * roomPxH - itemH / 2;
 
@@ -1002,7 +1110,7 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
       ctx.fillRect(-itemW / 2, -itemH / 2, itemW, itemH);
 
       // Border / Selection highlight
-      if (this.selectedFurniture?.instanceId === item.instanceId) {
+      if (!this.exportingSnapshot && this.selectedFurniture?.instanceId === item.instanceId) {
         ctx.strokeStyle = '#ff5a5f';
         ctx.lineWidth = 3;
       } else {
@@ -1019,6 +1127,30 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
 
       ctx.restore();
     });
+    this.drawWallGuides(ctx, scale, startX, startY);
+  }
+
+  private drawWallGuides(ctx: CanvasRenderingContext2D, scale: number, startX: number, startY: number) {
+    const item = this.selectedFurniture;
+    if (!item || item.hidden || !this.showGuides || this.exportingSnapshot) return;
+    const d = wallDistances(item, this.roomWidthFt, this.roomLengthFt), b = footprint(item);
+    const cx = startX + item.x / 100 * this.roomWidthFt * scale, cy = startY + item.y / 100 * this.roomLengthFt * scale;
+    const segments = [
+      [startX, cy, cx - b.width / 2 * scale, cy, d.west],
+      [cx + b.width / 2 * scale, cy, startX + this.roomWidthFt * scale, cy, d.east],
+      [cx, startY, cx, cy - b.depth / 2 * scale, d.north],
+      [cx, cy + b.depth / 2 * scale, cx, startY + this.roomLengthFt * scale, d.south]
+    ];
+    ctx.save(); ctx.strokeStyle = '#d5f8a5'; ctx.lineWidth = 1; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+    for (const [x1, y1, x2, y2, distance] of segments) {
+      if (distance < 0) continue;
+      ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke(); ctx.setLineDash([]);
+      const text = this.lengthLabel(distance), tx = (x1 + x2) / 2, ty = (y1 + y2) / 2;
+      const textWidth = ctx.measureText(text).width + 10;
+      ctx.fillStyle = '#162719'; ctx.fillRect(tx - textWidth / 2, ty - 9, textWidth, 18);
+      ctx.fillStyle = '#d5f8a5'; ctx.fillText(text, tx, ty + 4);
+    }
+    ctx.restore();
   }
 
   // 9. 2D INTERACTIVE DRAG HANDLERS
@@ -1038,11 +1170,13 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
     for (let i = this.placedItems.length - 1; i >= 0; i--) {
       const item = this.placedItems[i];
       const itemW = (item.width || 4) * scale;
-      const itemH = (item.height || 2.5) * scale;
+      const itemH = (item.imageData ? 0.2 : item.height || 2.5) * scale;
       const itemX = startX + (item.x / 100) * roomPxW - itemW / 2;
       const itemY = startY + (item.y / 100) * roomPxH - itemH / 2;
 
-      if (mouseX >= itemX && mouseX <= itemX + itemW && mouseY >= itemY && mouseY <= itemY + itemH) {
+      if (containsPoint(item, (mouseX - startX) / scale, (mouseY - startY) / scale, this.roomWidthFt, this.roomLengthFt)) {
+        this.selectedFurniture = item; this.inspectorTab = 'selection';
+        if (item.locked) { this.updateSelectionRing(); this.draw2DCanvas(); return; }
         canvas.setPointerCapture(e.pointerId);
         this.selectedFurniture = item;
         this.dragItem2D = item;
@@ -1056,7 +1190,7 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   on2DMouseMove(e: PointerEvent) {
-    if (!this.isDragging2D || !this.dragItem2D || !this.canvas2DRef) return;
+    if (!this.isDragging2D || !this.dragItem2D || this.dragItem2D.locked || !this.canvas2DRef) return;
 
     const canvas = this.canvas2DRef.nativeElement;
     const rect = canvas.getBoundingClientRect();
@@ -1070,14 +1204,14 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
     const startY = (canvas.height - roomPxH) / 2;
 
     const itemW = (this.dragItem2D.width || 4) * scale;
-    const itemH = (this.dragItem2D.height || 2.5) * scale;
+    const itemH = (this.dragItem2D.imageData ? 0.2 : this.dragItem2D.height || 2.5) * scale;
 
     const targetX = mouseX - this.dragOffset2D.x - startX;
     const targetY = mouseY - this.dragOffset2D.y - startY;
 
     this.dragItem2D.x = ((targetX + itemW / 2) / roomPxW) * 100;
     this.dragItem2D.y = ((targetY + itemH / 2) / roomPxH) * 100;
-    clampPlacement(this.dragItem2D, this.roomWidthFt, this.roomLengthFt);
+    this.place(this.dragItem2D);
 
     // Sync 3D mesh
     const mesh = this.furnitureMeshMap.get(this.dragItem2D.instanceId);
@@ -1103,8 +1237,17 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
   exportStudioSnapshot() {
     const canvas = this.viewMode !== 'TOP_DOWN' ? this.renderer?.domElement : this.canvas2DRef?.nativeElement;
     if (!canvas) return;
-    if (this.viewMode !== 'TOP_DOWN') this.renderer.render(this.scene, this.camera);
-    const link = document.createElement('a'); link.download = 'omnispace-design.png'; link.href = canvas.toDataURL('image/png'); link.click();
+    const ringVisible = this.selectionRingMesh?.visible;
+    this.exportingSnapshot = true;
+    try {
+      if (this.selectionRingMesh) this.selectionRingMesh.visible = false;
+      if (this.viewMode !== 'TOP_DOWN') this.renderer.render(this.scene, this.camera); else this.draw2DCanvas();
+      const link = document.createElement('a'); link.download = 'omnispace-design.png'; link.href = canvas.toDataURL('image/png'); link.click();
+    } finally {
+      this.exportingSnapshot = false;
+      if (this.selectionRingMesh) this.selectionRingMesh.visible = ringVisible;
+      this.draw2DCanvas();
+    }
   }
 
   saveProject() {
@@ -1135,7 +1278,7 @@ export class DesignerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   saveHistoryState() {
-    if (!this.ready) return;
+    if (!this.ready || this.batchEditing) return;
     this.history.push(this.snapshot()); this.draw2DCanvas(); this.queueSave();
   }
 

@@ -1,6 +1,9 @@
 import { PlacedFurniture } from './furniture-item.model';
 
 export interface DesignProject {
+  unitSystem?: 'ft' | 'm';
+  snapMode?: 'off' | 'grid' | 'wall' | 'objects';
+  snapStep?: number;
   id?: string;
   version?: number;
   ceilingHeight?: number;
